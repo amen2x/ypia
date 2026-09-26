@@ -29,11 +29,6 @@
     
     <div class="page-layout">
 
-       
-
-
-
-
     <div class="grid">
 
   <div class="box w-6 h-3">
@@ -86,9 +81,7 @@
     <p>mom sends a questionable link or post past it into here to giver her a kind but factual response</p>
 
   </div>
-
   </div>
-
    <aside class="action-items">
     <h2>Action items/check list?</h2>
     <ul>
@@ -99,7 +92,6 @@
   </aside>
 
   
-
   <footer>
     this is the end of the website thank you for using our services.
  </footer>
@@ -125,6 +117,30 @@
  
   // in-memory state: -1 = no mood set, otherwise index into moods[]
   let state = new Array(daysInMonth).fill(-1);
+
+  // demo data — a few days pre-filled so the chart looks alive right away
+  const demoData = {
+    1: 0,   // Great
+    2: 4,   // Good
+    3: 4,   // Good
+    4: 4,   // Good
+    5: 2,   // Okay
+    6: 0,   // Great
+    7:1,   // Good
+    8: 3,   // Meh
+    9: 2,   // Okay
+    10: 1,  // Good
+    11: 0,  // Great
+    12: 4,  // Bad
+    13: 1,  // Good
+    14: 0,  // Great
+    
+  
+  };
+  Object.entries(demoData).forEach(([day, moodIndex]) => {
+    state[day - 1] = moodIndex;
+  });
+
  
   function renderLegend() {
     legend.innerHTML = "";

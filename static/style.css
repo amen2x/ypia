@@ -20,9 +20,6 @@
 }
 
 
-
-
-
 body {
     background-color: #1dae68;
     margin: 0;
@@ -37,8 +34,6 @@ h1 {
 
 
 }
-
-
 
 .subtitle {
     color: #000000;
@@ -250,7 +245,6 @@ code {
 }
 
 .navbar {
-    background: #45c77f;
     display: flex;
     align-items: center;
     justify-content: space-between;
