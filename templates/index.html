@@ -24,6 +24,7 @@
     <header>
         <h1>Your Parent Is Aging</h1>
         <p class="subtitle">Let Us Help</p>
+        <p class="subtitle">"To care for those who once cared for us is one of the highest honors." — Tia Walker</p>
     </header>
     
     <div class="page-layout">
@@ -49,6 +50,24 @@
     <h2 class="tag">This is where the trackers will go</h2>
     <p>here is the mental tracker</p>
     <p>here is the physical tracker</p>
+    <div class="card">
+  <h1>Mood Chart</h1>
+  <p class="sub">Click a square to cycle through moods. Click again to clear.</p>
+ 
+  <div class="chart-wrap">
+    <div class="day-labels">
+      <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+    </div>
+    <div class="analyzeGrid" id="analyzeGrid"></div>
+  </div>
+ 
+  <div class="legend" id="legend"></div>
+ 
+  <div class="actions">
+    <button class="analyze" id="analyzeBtn">Analyze</button>
+  </div>
+
+</div>
   </div>
 
   <div class="box w-12 h-1">
@@ -78,11 +97,80 @@
     </ul>
   </aside>
 
+  
+
   <footer>
     this is the end of the website thank you for using our services.
  </footer>
 
  </div>
+
+ <script>
+  const moods = [ //up to you guys if you want to change or not 
+    { name: "Great",   color: "#39d353" },
+    { name: "Good",    color: "#26a641" },
+    { name: "Okay",    color: "#ffd43b" },
+    { name: "Meh",     color: "#ffa94d" },
+    { name: "Bad",     color: "#ff6b6b" },
+    { name: "Rough",   color: "#9775fa" }
+  ];
+ 
+  const daysInMonth = 31; // adjust if you want a shorter month
+  const startWeekday = 0; // 0 = Sunday, adjust so day 1 lands on the right column
+ 
+  const analyzeGrid = document.getElementById("analyzeGrid");
+  const legend = document.getElementById("legend");
+  const analyzeBtn = document.getElementById("analyzeBtn");
+ 
+  // in-memory state: -1 = no mood set, otherwise index into moods[]
+  let state = new Array(daysInMonth).fill(-1);
+ 
+  function renderLegend() {
+    legend.innerHTML = "";
+    moods.forEach(m => {
+      const item = document.createElement("div");
+      item.className = "legend-item";
+      item.innerHTML = `<span class="swatch" style="background:${m.color}"></span>${m.name}`;
+      legend.appendChild(item);
+    });
+  }
+ 
+  function renderGrid() {
+    analyzeGrid.innerHTML = "";
+ 
+    // leading empty slots so day 1 lines up under the correct weekday
+    for (let i = 0; i < startWeekday; i++) {
+      const filler = document.createElement("div");
+      filler.className = "day empty-slot";
+      analyzeGrid.appendChild(filler);
+    }
+ 
+    for (let i = 0; i < daysInMonth; i++) {
+      const cell = document.createElement("div");
+      cell.className = "day";
+      cell.title = "Day " + (i + 1);
+ 
+      const moodIndex = state[i];
+      cell.style.background = moodIndex >= 0 ? moods[moodIndex].color : "";
+ 
+      cell.addEventListener("click", () => {
+        state[i] = state[i] + 1;
+        if (state[i] >= moods.length) state[i] = -1; // cycle back to empty
+        renderGrid();
+      });
+ 
+      analyzeGrid.appendChild(cell);
+    }
+  }
+ 
+  analyzeBtn.addEventListener("click", () => {
+    state = new Array(daysInMonth).fill(-1);
+    renderGrid(); //atm "analyze button" just resets the grid, but you can implement your own logic here
+  });
+ 
+  renderLegend();
+  renderGrid();
+</script>
 
 
 

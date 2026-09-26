@@ -42,6 +42,7 @@ h1 {
     color: #ffffff;
     text-align: center;
 
+
 }
 
 header {
@@ -113,7 +114,7 @@ header {
     align-self: flex-start;
     font-size: 0.72rem;
     color: #000000;
-    background: #e7efe6;
+    background: #dfdf80;
     padding: 0.15rem 0.5rem;
     border-radius: 999px;
 }
@@ -296,4 +297,120 @@ code {
         flex-wrap: wrap;
         gap: 1rem 1.25rem;
     }
+}
+
+.card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 640px;
+    width: 100%;
+}
+
+p.sub {
+    margin: 0 0 20px;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.chart-wrap {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.day-labels {
+    display: grid;
+    grid-template-rows: repeat(7, 12px);
+    gap: 3px;
+    font-size: 9px;
+    color: var(--muted);
+    line-height: 12px;
+    padding-top: 0;
+    flex-shrink: 0;
+}
+
+.day-labels span {
+    height: 12px;
+}
+
+.analyzeGrid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(7, 12px);
+    gap: 3px;
+}
+
+.day {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    background: var(--cell-empty);
+    cursor: pointer;
+    transition: outline 0.1s ease, transform 0.05s ease;
+    outline: 1px solid rgba(27, 31, 35, 0.06);
+    outline-offset: -1px;
+}
+
+.day:hover {
+    transform: scale(1.25);
+    outline: 1px solid rgba(27, 31, 35, 0.3);
+}
+
+.day.empty-slot {
+    background: transparent;
+    cursor: default;
+    outline: none;
+}
+
+.day.empty-slot:hover {
+    transform: none;
+}
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding-top: 18px;
+    margin-top: 18px;
+    border-top: 1px solid var(--border);
+    font-size: 0.78rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    display: inline-block;
+    outline: 1px solid rgba(27, 31, 35, 0.06);
+    outline-offset: -1px;
+}
+
+.actions {
+    margin-top: 14px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+button.analyze {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+button.analyze:hover {
+    background: #f0f0f4;
 }
