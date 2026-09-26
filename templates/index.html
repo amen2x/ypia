@@ -20,18 +20,19 @@
   }
 </script>
 
+
 <body>
     <nav class="navbar">
     <a href="#" class="brand">Y.P.I.A</a>
-
+ 
     <div class="navbar-profile">
         <img src="static/images/man.jpeg" alt="Profile Picture" class="profile-image">
-        <span class="welcome-text">Welcome back, <span id="user-name">Mike</span></span>
+        <span class="welcome-text">Welcome back, <span id="logged-in-user">Mike</span></span>
     </div>
-
+ 
     <button class="upload-btn" id="openUploadModal">Upload Documents</button>
 </nav>
-
+ 
     <header>
         <h1>Your Parent Is Aging</h1>
         <p class="subtitle">Let Us Help</p>
@@ -39,30 +40,30 @@
     </header>
     
     <div class="page-layout">
-
+ 
     <div class="grid">
-
+ 
   <div class="box w-6 h-3">
         <h2 class="tag">General/update</h2>
-
+ 
     <div class="profile-header">
     <img src="static/images/elderwoman.jpg" alt="Profile Picture" class="circular-image">
-    <h1><span id="user-name">Susa</span>'s updates</h1>
+    <h1><span id="parent-name">Susan</span>'s updates</h1>
   </div>
-
+ 
     <p>This will be broken into two sections basic info about susan and her appointments</p>
     <ul>
       <li>Susan(your mother) has a dentist appoint at 12 october 31</li>
       <li>Susan had an point on august 15 and she had a refil for her perscription</li>
-
+ 
     </ul>
   </div>
-
-  <div class="box w-6 h-3">
+ 
+ <div class="box w-6 h-3">
     <h2 class="tag">Monthly Wellness Tracker</h2>
     <div class="card">
   <h1>Wellness Tracker</h1>
-<p class="sub"><span id="user-name">Susa</span>'s chart</p> 
+<p class="sub"><span class="parent-name-echo">Susan</span>'s chart</p> 
   <div class="chart-wrap">
     <div class="day-labels">
       <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
@@ -70,37 +71,48 @@
     <div class="analyzeGrid" id="analyzeGrid"></div>
   </div>
  
+  <div class="log-day-row">
+    <label for="logDaySelect" class="log-day-label">Log a day for <span class="parent-name-echo">Susan</span>:</label>
+    <select id="logDaySelect"></select>
+    <select id="logMoodSelect"></select>
+    <button id="logDayBtn" type="button">Log</button>
+  </div>
+ 
   <div class="legend" id="legend"></div>
+ 
+  <p class="mood-alert-note" id="moodAlertNote" hidden>
+    4+ low-mood days in a row detected — a check-in item was added to the list.
+  </p>
  
   <div class="actions">
     <button class="analyze" id="analyzeBtn">Analyze</button>
   </div>
-
+ 
 </div>
   </div>
-
+ 
   <div class="box w-12 h-1">
     <h2 class="tag">Susan's current medical perscription</h2>
     <p>list of the current medication susan is take next to this is a button that changes status based on the perscriptions susan is taking</p>
     <span class="status-indicator" data-status="good"></span>
   </div>
-
+ 
   <div class="box w-4 h-2">
     <h2 class="tag" > Susan's sumary</h2>
     <p>helpfull data for a doctor's appointment or something</p>
   </div>
-
+ 
   <div class="box w-8 h-2">
     <h2 class="tag">fact check that boomer message</h2>
     <p>mom sends a questionable link or post past it into here to giver her a kind but factual response</p>
-
+ 
   </div>
   </div>
    <aside class="action-items">
     <h2>Action items/check list?</h2>
-
+ 
     <div class="actionList"  id="actionList">
-
+ 
     <div class="action-item" draggable="true" data-urgency="medium">
             <span class="drag-handle">⋮⋮</span>
             <input type="checkbox" id="physicaltherapy">
@@ -113,7 +125,7 @@
         <button class="cal-btn" title="Add to Google Calendar">📅</button>
             
         </div>
-
+ 
         <div class="action-item" draggable="true" data-urgency="low">
             <span class="drag-handle">⋮⋮</span>
             <input type="checkbox" id="grocery">
@@ -125,7 +137,7 @@
         </select>
             <button class="cal-btn" title="Add to Google Calendar">📅</button>
         </div>
-
+ 
         <div class="action-item" draggable="true" data-urgency="high">
             <span class="drag-handle">⋮⋮</span>
             <input type="checkbox" id="mentalhealth">
@@ -137,23 +149,32 @@
         </select>
             <button class="cal-btn" title="Add to Google Calendar">📅</button>
         </div>
-
-
+ 
+ 
     </div>
-
+ 
     <div class="add-item-row">
     <input type="text" id="newItemInput" placeholder="Add a new item...">
     <button id="addItemBtn">+</button>
 </div>
   </aside>
-
+ 
   <footer>
     this is the end of the website thank you for using our services.
  </footer>
-
+ 
  </div>
-
+ 
  <script>
+  // Keep every "echo" of the parent's name in sync with the single source of truth (#parent-name)
+  (function syncParentName() {
+    const source = document.getElementById('parent-name');
+    if (!source) return;
+    document.querySelectorAll('.parent-name-echo').forEach(el => {
+      el.textContent = source.textContent;
+    });
+  })();
+ 
   const moods = [ //up to you guys if you want to change or not 
     { name: "Great",   color: "#39d353" },
     { name: "Good",    color: "#26a641" },
@@ -163,16 +184,26 @@
     { name: "Rough",   color: "#9775fa" }
   ];
  
+  // Mood indices 3-5 (Meh, Bad, Rough) count as "low mood" days for the check-in alert below.
+  const LOW_MOOD_THRESHOLD = 3;
+  const LOW_MOOD_STREAK_LENGTH = 4;
+  const MENTAL_HEALTH_ITEM_ID = 'auto-mental-health-checkin';
+ 
   const daysInMonth = 31; // adjust if you want a shorter month
   const startWeekday = 0; // 0 = Sunday, adjust so day 1 lands on the right column
  
   const analyzeGrid = document.getElementById("analyzeGrid");
   const legend = document.getElementById("legend");
   const analyzeBtn = document.getElementById("analyzeBtn");
+  const moodAlertNote = document.getElementById("moodAlertNote");
+  const logDaySelect = document.getElementById("logDaySelect");
+  const logMoodSelect = document.getElementById("logMoodSelect");
+  const logDayBtn = document.getElementById("logDayBtn");
+  const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
  
   // in-memory state: -1 = no mood set, otherwise index into moods[]
   let state = new Array(daysInMonth).fill(-1);
-
+ 
   // demo data — a few days pre-filled so the chart looks alive right away
   const demoData = {
     1: 0,   // Great
@@ -195,7 +226,40 @@
   Object.entries(demoData).forEach(([day, moodIndex]) => {
     state[day - 1] = moodIndex;
   });
-
+ 
+  // Builds "Day N — Weekday" labels for the log-a-day dropdown, e.g. "Day 3 — Tuesday"
+  function dayLabel(dayIndex) {
+    const weekday = WEEKDAY_NAMES[(startWeekday + dayIndex) % 7];
+    return `Day ${dayIndex + 1} — ${weekday}`;
+  }
+ 
+  // Fills the "log a day" day dropdown, defaulting to the first day with no mood logged yet
+  function populateLogDaySelect() {
+    const previousValue = logDaySelect.value;
+    logDaySelect.innerHTML = "";
+    for (let i = 0; i < daysInMonth; i++) {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = dayLabel(i) + (state[i] >= 0 ? ` (${moods[state[i]].name})` : "");
+      logDaySelect.appendChild(opt);
+    }
+    const firstUnlogged = state.findIndex(m => m < 0);
+    if (previousValue && logDaySelect.querySelector(`option[value="${previousValue}"]`)) {
+      logDaySelect.value = previousValue;
+    } else if (firstUnlogged >= 0) {
+      logDaySelect.value = String(firstUnlogged);
+    }
+  }
+ 
+  function populateLogMoodSelect() {
+    logMoodSelect.innerHTML = "";
+    moods.forEach((m, i) => {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = m.name;
+      logMoodSelect.appendChild(opt);
+    });
+  }
  
   function renderLegend() {
     legend.innerHTML = "";
@@ -233,6 +297,42 @@
  
       analyzeGrid.appendChild(cell);
     }
+ 
+    populateLogDaySelect();
+    checkMentalHealthStreak();
+  }
+ 
+  // Looks for LOW_MOOD_STREAK_LENGTH (default 4) consecutive logged days where
+  // mood index is >= LOW_MOOD_THRESHOLD (Meh/Bad/Rough). If found, auto-adds a
+  // high-priority check-in item for the parent to the action list.
+  function checkMentalHealthStreak() {
+    let streak = 0;
+    let triggered = false;
+ 
+    for (let i = 0; i < daysInMonth; i++) {
+      const moodIndex = state[i];
+      if (moodIndex >= LOW_MOOD_THRESHOLD) {
+        streak++;
+        if (streak >= LOW_MOOD_STREAK_LENGTH) {
+          triggered = true;
+          break;
+        }
+      } else {
+        streak = 0;
+      }
+    }
+ 
+    if (triggered) {
+      const parentName = (document.getElementById('parent-name')?.textContent || 'your parent').trim();
+      window.addActionItem(
+        MENTAL_HEALTH_ITEM_ID,
+        `Check in with ${parentName} — mood log shows ${LOW_MOOD_STREAK_LENGTH}+ low days in a row`,
+        'high'
+      );
+      if (moodAlertNote) moodAlertNote.hidden = false;
+    } else if (moodAlertNote) {
+      moodAlertNote.hidden = true;
+    }
   }
  
   analyzeBtn.addEventListener("click", () => {
@@ -240,38 +340,75 @@
     renderGrid(); //atm "analyze button" just resets the grid, but you can implement your own logic here
   });
  
+  logDayBtn.addEventListener("click", () => {
+    const dayIndex = parseInt(logDaySelect.value, 10);
+    const moodIndex = parseInt(logMoodSelect.value, 10);
+    if (Number.isNaN(dayIndex) || Number.isNaN(moodIndex)) return;
+    state[dayIndex] = moodIndex;
+    renderGrid(); // re-renders the chart, refreshes the dropdown, and re-runs the streak check
+  });
+ 
   renderLegend();
+  populateLogMoodSelect();
   renderGrid();
-
-
+ 
+ 
   //for the action items check list 
   
 </script>
-
+ 
 <script>
 (function () {
     const list = document.getElementById('actionList');
     let dragged = null;
-
+ 
+    // Shared helper: add an action item to the list by id, skipping duplicates.
+    // Other scripts (like the wellness tracker's mental-health-streak check)
+    // call window.addActionItem(...) to push items in from outside this IIFE.
+    function addActionItem(id, text, urgency = 'medium') {
+        if (document.getElementById(id)) return; // already on the list, don't duplicate
+ 
+        const item = document.createElement('div');
+        item.className = 'action-item';
+        item.draggable = true;
+        item.dataset.urgency = urgency;
+        item.innerHTML = `
+            <span class="drag-handle">⋮⋮</span>
+            <input type="checkbox" id="${id}">
+            <label for="${id}">${text}</label>
+            <select class="urgency-select">
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+            </select>
+            <button class="cal-btn" title="Add to Google Calendar">📅</button>
+        `;
+        const select = item.querySelector('.urgency-select');
+        if (select) select.value = urgency;
+ 
+        list.prepend(item); // surface auto-flagged items at the top
+    }
+    window.addActionItem = addActionItem;
+ 
     // Checkbox strike-through
     list.addEventListener('change', (e) => {
         if (e.target.matches('input[type="checkbox"]')) {
             e.target.closest('.action-item').classList.toggle('checked', e.target.checked);
         }
     });
-
+ 
     // Drag to reorder (position in the list = rank of importance)
     list.addEventListener('dragstart', (e) => {
         dragged = e.target.closest('.action-item');
         dragged.classList.add('dragging');
     });
-
+ 
     list.addEventListener('dragend', () => {
         dragged.classList.remove('dragging');
         list.querySelectorAll('.action-item').forEach(item => item.classList.remove('drag-over'));
         dragged = null;
     });
-
+ 
     list.addEventListener('dragover', (e) => {
         e.preventDefault();
         const target = e.target.closest('.action-item');
@@ -279,7 +416,7 @@
         list.querySelectorAll('.action-item').forEach(item => item.classList.remove('drag-over'));
         target.classList.add('drag-over');
     });
-
+ 
     list.addEventListener('drop', (e) => {
         e.preventDefault();
         const target = e.target.closest('.action-item');
@@ -294,7 +431,7 @@
         }
         target.classList.remove('drag-over');
     });
-
+ 
     // Send to Google Calendar
     list.addEventListener('click', (e) => {
         if (!e.target.matches('.cal-btn')) return;
@@ -303,7 +440,7 @@
         const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(text);
         window.open(url, '_blank');
     });
-
+ 
         // Change urgency via the dropdown
     list.addEventListener('change', (e) => {
         if (e.target.matches('.urgency-select')) {
@@ -311,47 +448,32 @@
             item.dataset.urgency = e.target.value;
         }
     });
-
+ 
     // Keep the dropdown showing the item's current urgency on load
     list.querySelectorAll('.action-item').forEach((item) => {
         const select = item.querySelector('.urgency-select');
         if (select) select.value = item.dataset.urgency || 'medium';
     });
 })();
-
+ 
 document.getElementById('addItemBtn').addEventListener('click', addNewItem);
 document.getElementById('newItemInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') addNewItem();
 });
-
+ 
 function addNewItem() {
     const input = document.getElementById('newItemInput');
     const text = input.value.trim();
     if (!text) return;
-
+ 
     const id = 'item-' + Date.now();
-    const item = document.createElement('div');
-    item.className = 'action-item';
-    item.draggable = true;
-    item.dataset.urgency = 'medium';
-    item.innerHTML = `
-        <span class="drag-handle">⋮⋮</span>
-        <input type="checkbox" id="${id}">
-        <label for="${id}">${text}</label>
-        <select class="urgency-select">
-            <option value="high">High</option>
-            <option value="medium" selected>Medium</option>
-            <option value="low">Low</option>
-        </select>
-        <button class="cal-btn" title="Add to Google Calendar">📅</button>
-    `;
-
-    document.getElementById('actionList').appendChild(item);
+    window.addActionItem(id, text, 'medium');
     input.value = '';
 }
 </script>
-
+ 
 <script src="../static/document-upload.js" defer></script>
-
-
+ 
+ 
   
+</html>
