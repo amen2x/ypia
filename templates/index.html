@@ -42,6 +42,8 @@
 
   <div class="box w-6 h-3">
     <h2 class="tag">General/update</h2>
+    <img src="https://picsum.photos" alt="Profile Picture" class="circular-image">
+
     <p>This will be broken into two sections basic info about susan and her appointments</p>
     <ul>
       <li>Susan(your mother) has a dentist appoint at 12 october 31</li>
@@ -93,14 +95,55 @@
   </div>
    <aside class="action-items">
     <h2>Action items/check list?</h2>
-    <ul>
-      <li>Book susan physical therapy appoitment</li>
-      <li>set up time this week to take susan to the grocery store</li>
-      <li>Check in with susan about her mental health</li>
-    </ul>
+
+    <div class="actionList"  id="actionList">
+
+    <div class="action-item" draggable="true" data-urgency="medium">
+            <span class="drag-handle">⋮⋮</span>
+            <input type="checkbox" id="physicaltherapy">
+            <label for="physicaltherapy">Book susan physical therapy appoitment</label>
+            <select class="urgency-select">
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+        </select>
+        <button class="cal-btn" title="Add to Google Calendar">📅</button>
+            
+        </div>
+
+        <div class="action-item" draggable="true" data-urgency="low">
+            <span class="drag-handle">⋮⋮</span>
+            <input type="checkbox" id="grocery">
+            <label for="grocery">Set up time this week to take susan to the grocery store</label>
+             <select class="urgency-select">
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+        </select>
+            <button class="cal-btn" title="Add to Google Calendar">📅</button>
+        </div>
+
+        <div class="action-item" draggable="true" data-urgency="high">
+            <span class="drag-handle">⋮⋮</span>
+            <input type="checkbox" id="mentalhealth">
+            <label for="mentalhealth">Check in with susan about her mental health</label>
+             <select class="urgency-select">
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+        </select>
+            <button class="cal-btn" title="Add to Google Calendar">📅</button>
+        </div>
+
+
+    </div>
+
+    <div class="add-item-row">
+    <input type="text" id="newItemInput" placeholder="Add a new item...">
+    <button id="addItemBtn">+</button>
+</div>
   </aside>
 
-  
   <footer>
     this is the end of the website thank you for using our services.
  </footer>
@@ -196,10 +239,116 @@
  
   renderLegend();
   renderGrid();
+
+
+  //for the action items check list 
+  
+</script>
+
+<script>
+(function () {
+    const list = document.getElementById('actionList');
+    let dragged = null;
+
+    // Checkbox strike-through
+    list.addEventListener('change', (e) => {
+        if (e.target.matches('input[type="checkbox"]')) {
+            e.target.closest('.action-item').classList.toggle('checked', e.target.checked);
+        }
+    });
+
+    // Drag to reorder (position in the list = rank of importance)
+    list.addEventListener('dragstart', (e) => {
+        dragged = e.target.closest('.action-item');
+        dragged.classList.add('dragging');
+    });
+
+    list.addEventListener('dragend', () => {
+        dragged.classList.remove('dragging');
+        list.querySelectorAll('.action-item').forEach(item => item.classList.remove('drag-over'));
+        dragged = null;
+    });
+
+    list.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const target = e.target.closest('.action-item');
+        if (!target || target === dragged) return;
+        list.querySelectorAll('.action-item').forEach(item => item.classList.remove('drag-over'));
+        target.classList.add('drag-over');
+    });
+
+    list.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const target = e.target.closest('.action-item');
+        if (!target || target === dragged) return;
+        const items = Array.from(list.children);
+        const draggedIndex = items.indexOf(dragged);
+        const targetIndex = items.indexOf(target);
+        if (draggedIndex < targetIndex) {
+            target.after(dragged);
+        } else {
+            target.before(dragged);
+        }
+        target.classList.remove('drag-over');
+    });
+
+    // Send to Google Calendar
+    list.addEventListener('click', (e) => {
+        if (!e.target.matches('.cal-btn')) return;
+        const item = e.target.closest('.action-item');
+        const text = item.querySelector('label').textContent;
+        const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(text);
+        window.open(url, '_blank');
+    });
+
+        // Change urgency via the dropdown
+    list.addEventListener('change', (e) => {
+        if (e.target.matches('.urgency-select')) {
+            const item = e.target.closest('.action-item');
+            item.dataset.urgency = e.target.value;
+        }
+    });
+
+    // Keep the dropdown showing the item's current urgency on load
+    list.querySelectorAll('.action-item').forEach((item) => {
+        const select = item.querySelector('.urgency-select');
+        if (select) select.value = item.dataset.urgency || 'medium';
+    });
+})();
+
+document.getElementById('addItemBtn').addEventListener('click', addNewItem);
+document.getElementById('newItemInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') addNewItem();
+});
+
+function addNewItem() {
+    const input = document.getElementById('newItemInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const id = 'item-' + Date.now();
+    const item = document.createElement('div');
+    item.className = 'action-item';
+    item.draggable = true;
+    item.dataset.urgency = 'medium';
+    item.innerHTML = `
+        <span class="drag-handle">⋮⋮</span>
+        <input type="checkbox" id="${id}">
+        <label for="${id}">${text}</label>
+        <select class="urgency-select">
+            <option value="high">High</option>
+            <option value="medium" selected>Medium</option>
+            <option value="low">Low</option>
+        </select>
+        <button class="cal-btn" title="Add to Google Calendar">📅</button>
+    `;
+
+    document.getElementById('actionList').appendChild(item);
+    input.value = '';
+}
 </script>
 
 <script src="../static/document-upload.js" defer></script>
-
 
 
   

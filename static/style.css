@@ -140,6 +140,11 @@ header {
 
 .w-4 {
     grid-column: span 4;
+
+}
+
+.w-4:hover {
+    background: var(--surface-border);
 }
 
 .w-5 {
@@ -150,6 +155,10 @@ header {
     grid-column: span 6;
 }
 
+.w-6:hover {
+    background: var(--surface-border);
+}
+
 .w-7 {
     grid-column: span 7;
 }
@@ -158,12 +167,20 @@ header {
     grid-column: span 8;
 }
 
+.w-8:hover {
+    background: var(--surface-border);
+}
+
 .w-9 {
     grid-column: span 9;
 }
 
 .w-12 {
     grid-column: span 12;
+}
+
+.w-12:hover {
+    background: var(--surface-border);
 }
 
 /* Height spans — stretch a box across extra rows when it holds more
@@ -220,6 +237,28 @@ code {
     top: 1.5rem;
 }
 
+
+
+action-items:hover {
+    background: var(--urgency-hover, var(--accent-soft));
+}
+
+.action-items[data-urgency="high"] {
+    --urgency-hover: rgba(214, 69, 69, 0.18);
+}
+
+/* red */
+.action-items[data-urgency="medium"] {
+    --urgency-hover: rgba(224, 168, 58, 0.18);
+}
+
+/* amber */
+.action-items[data-urgency="low"] {
+    --urgency-hover: rgba(60, 110, 71, 0.18);
+}
+
+/* green */
+
 .action-items h2 {
     margin: 0 0 0.6rem;
     font-size: 1rem;
@@ -232,6 +271,116 @@ code {
     font-size: 0.88rem;
     line-height: 1.6;
     color: var(--ink-soft);
+}
+
+.action-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.25rem;
+    border-radius: 8px;
+    cursor: grab;
+    position: relative;
+    transition: background 0.15s;
+}
+
+
+
+.action-item.dragging {
+    opacity: 0.4;
+}
+
+.action-item.drag-over {
+    border-top: 2px solid var(--accent);
+}
+
+.action-item .drag-handle {
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+    user-select: none;
+}
+
+.action-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+}
+
+.action-item label {
+    flex: 1;
+    font-size: 0.88rem;
+    color: var(--ink);
+}
+
+.action-item.checked label {
+    text-decoration: line-through;
+    color: var(--ink-soft);
+}
+
+.action-item .cal-btn {
+    opacity: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.2rem;
+    color: var(--accent);
+    transition: opacity 0.15s;
+}
+
+.action-item:hover {
+    background: var(--urgency-hover, var(--accent-soft));
+}
+
+.action-item[data-urgency="high"] {
+    --urgency-hover: rgba(214, 69, 69, 0.18);
+}
+
+/* red */
+.action-item[data-urgency="medium"] {
+    --urgency-hover: rgba(224, 168, 58, 0.18);
+}
+
+/* amber */
+.action-item[data-urgency="low"] {
+    --urgency-hover: rgba(60, 110, 71, 0.18);
+}
+
+/* green */
+
+.action-item .urgency-select {
+    font-size: 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--ink);
+    padding: 0.15rem 0.3rem;
+}
+
+.add-item-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.add-item-row input {
+    flex: 1;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--ink);
+}
+
+.add-item-row button {
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 8px;
+    width: 32px;
+    font-size: 1.1rem;
+    cursor: pointer;
 }
 
 @media (max-width: 640px) {
@@ -397,6 +546,8 @@ p.sub {
     display: flex;
     justify-content: flex-end;
 }
+
+
 
 button.analyze {
     background: none;
