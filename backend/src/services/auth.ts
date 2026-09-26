@@ -6,6 +6,8 @@ const SALT_ROUNDS = 12;
 
 export class AuthError extends Error {}
 
+export type AccountRole = "parent" | "caregiver";
+
 export interface SignupInput {
   role: "parent" | "child";
   fullName: string;
@@ -78,9 +80,9 @@ export async function createAccount(input: SignupInput): Promise<{ userId: strin
 export async function verifyLogin(
   email: string,
   password: string
-): Promise<{ id: string; fullName: string }> {
+): Promise<{ id: string; fullName: string; role: AccountRole }> {
   const pool = getPool();
-  const result = await pool.query(
+  const result = await pool.query<{ id: string; full_name: string; password_hash: string }>(
     "SELECT id, full_name, password_hash FROM users WHERE email = $1",
     [email]
   );
@@ -96,5 +98,20 @@ export async function verifyLogin(
     throw new AuthError("Invalid email or password");
   }
 
-  return { id: user.id, fullName: user.full_name };
+  const roleResult = await pool.query<{ is_parent: boolean; is_caregiver: boolean }>(
+    `SELECT EXISTS(SELECT 1 FROM parents WHERE user_id = $1) AS is_parent,
+            EXISTS(SELECT 1 FROM parent_relationships WHERE user_id = $1) AS is_caregiver`,
+    [user.id],
+  );
+  const role = roleResult.rows[0]?.is_parent
+    ? "parent"
+    : roleResult.rows[0]?.is_caregiver
+      ? "caregiver"
+      : null;
+
+  if (role === null) {
+    throw new AuthError("Account role could not be determined");
+  }
+
+  return { id: user.id, fullName: user.full_name, role };
 }

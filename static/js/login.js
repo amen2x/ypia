@@ -17,7 +17,7 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
 
     if (res.ok) {
       localStorage.setItem("ypia_user", JSON.stringify(data.user));
-      window.location.href = "/";
+      window.location.href = data.user.role === "parent" ? "/parent" : "/";
     } else {
       alert(data.error || "Invalid email or password.");
     }
