@@ -1,0 +1,20 @@
+{
+  "documentType": "prescription",
+  "medications": [
+    {
+      "name": "Lisinopril",
+      "dose": "20 mg",
+      "frequency": "once daily",
+      "status": "active"
+    },
+    {
+      "name": "Metoprolol",
+      "dose": "25 mg",
+      "frequency": "once daily",
+      "status": "started"
+    }
+  ],
+  "appointments": [],
+  "followUps": [],
+  "instructions": ["Monitor blood pressure daily."]
+}
