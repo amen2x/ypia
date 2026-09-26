@@ -23,10 +23,12 @@
 <body>
     <nav class="navbar">
     <a href="#" class="brand">Y.P.I.A</a>
-    <ul>
-        <li><a href="#"></a></li>
-        
-    </ul>
+
+    <div class="navbar-profile">
+        <img src="static/images/man.jpeg" alt="Profile Picture" class="profile-image">
+        <span class="welcome-text">Welcome back, <span id="user-name">Mike</span></span>
+    </div>
+
     <button class="upload-btn" id="openUploadModal">Upload Documents</button>
 </nav>
 
@@ -57,13 +59,10 @@
   </div>
 
   <div class="box w-6 h-3">
-    <h2 class="tag">This is where the trackers will go</h2>
-    <p>here is the mental tracker</p>
-    <p>here is the physical tracker</p>
+    <h2 class="tag">Monthly Wellness Tracker</h2>
     <div class="card">
-  <h1>Mood Chart</h1>
-  <p class="sub">Click a square to cycle through moods. Click again to clear.</p>
- 
+  <h1>Wellness Tracker</h1>
+<p class="sub"><span id="user-name">Susa</span>'s chart</p> 
   <div class="chart-wrap">
     <div class="day-labels">
       <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
