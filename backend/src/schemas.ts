@@ -34,3 +34,22 @@ export const extractedDocumentSchema = z.object({
   followUps: z.array(followUpSchema),
   instructions: z.array(z.string().min(1))
 });
+
+export const signupSchema = z
+  .object({
+    role: z.enum(["parent", "child"]),
+    fullName: z.string().min(1),
+    email: z.string().email(),
+    password: z.string().min(8),
+    parentEmail: z.string().email().optional(),
+    relationship: z.string().min(1).optional()
+  })
+  .refine((data) => data.role !== "child" || !!data.parentEmail, {
+    message: "parentEmail is required when role is child",
+    path: ["parentEmail"]
+  });
+
+export const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1)
+});

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up</title>
+    <link rel="stylesheet" href="../static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        .login-wrap { max-width: 1300px; margin: 3rem auto; padding: 0 1.5rem; }
+
+        .login-box {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 2.5rem 2.5rem 2rem;
+            max-width: 460px;
+            margin: 0 auto;
+        }
+
+        .login-hi {
+            text-align: left;
+            padding-left: 15%;
+            font-family: 'Manrope', sans-serif;
+            font-weight: 800;
+            font-size: 2.5rem;
+            color: var(--ink);
+            margin: 0 0 0.5rem;
+        }
+
+        .choice-sub {
+            text-align: left;
+            padding-left: 15%;
+            font-size: 0.88rem;
+            color: var(--ink-soft);
+            margin: 0 0 1.75rem;
+        }
+
+        .role-cards { display: flex; flex-direction: column; gap: 0.9rem; }
+
+        .role-card {
+            display: block;
+            text-decoration: none;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 1rem 1.1rem;
+            background: rgba(255, 255, 255, 0.4);
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+
+        .role-card:hover { border-color: var(--accent); background: rgba(255, 255, 255, 0.6); }
+
+        .role-card h3 {
+            margin: 0 0 0.25rem;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.98rem;
+            font-weight: 600;
+            color: var(--ink);
+        }
+
+        .role-card p { margin: 0; font-size: 0.82rem; color: var(--ink-soft); }
+
+        .login-footer-text { text-align: center; font-size: 0.78rem; color: var(--ink-soft); margin-top: 1.5rem; }
+        .login-footer-text a { color: var(--accent); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="#" class="brand">Y.P.I.A</a>
+        <ul><li><a href="#"></a></li></ul>
+    </nav>
+
+    <div class="login-wrap">
+        <div class="login-box">
+            <h1 class="login-hi">Hi.</h1>
+            <p class="choice-sub">Which best describes you?</p>
+
+            <div class="role-cards">
+                <a class="role-card" href="/signup/parent">
+                    <h3>I'm a Parent</h3>
+                    <p>Create your own profile so your family can help take care of you.</p>
+                </a>
+
+                <a class="role-card" href="/signup/child">
+                    <h3>I'm a Child / Caregiver</h3>
+                    <p>Link your account to a parent's profile that's already been created.</p>
+                </a>
+            </div>
+
+            <p class="login-footer-text">Already have an account? <a href="/login">Sign in</a></p>
+        </div>
+    </div>
+</body>
+</html>

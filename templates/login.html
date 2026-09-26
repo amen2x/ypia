@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In</title>
+    <link rel="stylesheet" href="../static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        .login-wrap { max-width: 1300px; margin: 3rem auto; padding: 0 1.5rem; }
+
+        .login-box {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 2.5rem 2.5rem 2rem;
+            max-width: 420px;
+            margin: 0 auto;
+        }
+
+        .login-hi {
+            text-align: left;
+            padding-left: 15%;
+            font-family: 'Manrope', sans-serif;
+            font-weight: 800;
+            font-size: 2.5rem;
+            color: var(--ink);
+            margin: 0 0 1.75rem;
+        }
+
+        .login-field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1.1rem; }
+        .login-field label { font-size: 0.82rem; font-weight: 600; color: var(--ink); }
+        .login-field input {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.92rem;
+            padding: 0.6rem 0.75rem;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.7);
+            color: var(--ink);
+        }
+        .login-field input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+
+        .login-actions { display: flex; justify-content: center; margin-top: 1.5rem; }
+
+        .signin-btn {
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 0.92rem;
+            color: #fff;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            padding: 0.65rem 2.25rem;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .signin-btn:hover { background: #2e5636; }
+
+        .login-footer-text { text-align: center; font-size: 0.78rem; color: var(--ink-soft); margin-top: 1.25rem; }
+        .login-footer-text a { color: var(--accent); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="#" class="brand">Y.P.I.A</a>
+        <ul><li><a href="#"></a></li></ul>
+    </nav>
+
+    <div class="login-wrap">
+        <div class="login-box">
+            <h1 class="login-hi">Hi.</h1>
+
+            <form id="loginForm">
+                <div class="login-field">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" placeholder="you@example.com" required>
+                </div>
+
+                <div class="login-field">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="••••••••" required>
+                </div>
+
+                <div class="login-actions">
+                    <button type="submit" class="signin-btn">Sign In</button>
+                </div>
+            </form>
+
+            <p class="login-footer-text">Don't have an account? <a href="/signup">Sign up</a></p>
+        </div>
+    </div>
+
+    <script src="../static/js/login.js"></script>
+</body>
+</html>

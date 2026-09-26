@@ -10,14 +10,18 @@
   },
   "dependencies": {
     "@google/genai": "^2.24.0",
+    "bcrypt": "^6.0.0",
     "express": "^5.2.1",
     "multer": "^2.4.0",
+    "pg": "^8.23.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.2.0",
     "@types/node": "^22.13.10",
+    "@types/pg": "^8.23.1",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"
   }

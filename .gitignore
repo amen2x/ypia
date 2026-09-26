@@ -1,0 +1,13 @@
+# ignore any file ending in .env anywhere in the repo 
+*.env
+**/*.env
+
+# ignore all node_modules and dist/* and .env files 
+**/node_modules/
+
+# build output 
+**/dist/
+
+# environment files 
+**/.env/
+**/.env.*
