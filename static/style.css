@@ -30,19 +30,21 @@ body {
 }
 
 h1 {
-    color: #fff;
+    color: #000000;
     text-align: center;
-    font-size: 30px;
+    font-size: 40px;
+    margin-bottom: 5px;
+
 
 }
 
 
 
 .subtitle {
-    color: #ffffff;
+    color: #000000;
     text-align: center;
-
-
+    font-weight: 900;
+    margin-top: 5px
 }
 
 header {
@@ -101,6 +103,7 @@ header {
     flex-direction: column;
     gap: 0.5rem;
     overflow: auto;
+    position: relative;
 }
 
 .box h2 {
@@ -413,4 +416,15 @@ button.analyze {
 
 button.analyze:hover {
     background: #f0f0f4;
+}
+
+.status-indicator {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 60px;
+    height: 60px;
+    border-radius: 3px;
+    background: var(--status-color, #999);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
 }
