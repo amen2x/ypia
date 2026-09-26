@@ -1,3 +1,22 @@
+:root {
+    --bg: #f6f5f2;
+    --surface: #ffffff;
+    --ink: #e1dec7;
+    --ink-soft: #55594f;
+    --line: #dcd9d0;
+    --accent: #3c6e47;
+    --accent-soft: #e7efe6;
+    --radius: 10px;
+    --gap: 1rem;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+
+
+
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: #1dae68;
@@ -12,15 +31,7 @@ h1 {
 
 }
 
-.card {
-    background: #f9f9f9;
-    border: 1px solid #eee;
-    border-radius: 5px;
-    padding: 20px;
-    margin: 10px;
-    flex: 1 1 calc(30% - 20px);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
+
 
 .subtitle {
     color: #e5acac;
@@ -29,14 +40,25 @@ h1 {
 }
 
 header {
-    background-image: url('images/elders.jpeg');
+    position: relative;
+    background-image:
+        linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35)),
+        url('images/elders.jpeg');
+    background-size: auto 50%;
 
-    background-size: auto 100%;
+    background-size: cover, auto 100%;
+    background-repeat: no-repeat, repeat-x;
+    background-position: center, 0% 50%;
+
 
     animation: panHeader 80s linear infinite;
-    background-repeat: repeat-x;
 
-    padding: 16rem;
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2rem 1.5rem;
+
     text-align: center;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 
@@ -51,5 +73,169 @@ header {
     100% {
         /* End at the far right*/
         background-position: 2000px 50%;
+    }
+}
+
+.grid {
+
+    width: 100%;
+    margin-top: 2rem;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-auto-rows: minmax(90px, auto);
+    gap: var(--gap);
+}
+
+.box {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    overflow: auto;
+}
+
+.box h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.box .tag {
+    display: inline-block;
+    align-self: flex-start;
+    font-size: 0.72rem;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+}
+
+.box p {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--ink-soft);
+}
+
+.box ul {
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+}
+
+/* Width spans — pick whichever fits the content. Numbers refer to the
+     12 columns above, so 6 = half width, 4 = a third, 12 = full row. */
+.w-3 {
+    grid-column: span 3;
+}
+
+.w-4 {
+    grid-column: span 4;
+}
+
+.w-5 {
+    grid-column: span 5;
+}
+
+.w-6 {
+    grid-column: span 6;
+}
+
+.w-7 {
+    grid-column: span 7;
+}
+
+.w-8 {
+    grid-column: span 8;
+}
+
+.w-9 {
+    grid-column: span 9;
+}
+
+.w-12 {
+    grid-column: span 12;
+}
+
+/* Height spans — stretch a box across extra rows when it holds more
+     content or needs to line up next to a taller neighbor. */
+.h-1 {
+    grid-row: span 1;
+}
+
+.h-2 {
+    grid-row: span 2;
+}
+
+.h-3 {
+    grid-row: span 3;
+}
+
+/* Below ~640px every box goes full-width and stacks, height spans reset
+     since there's no neighboring row to match anymore. */
+@media (max-width: 640px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+
+    .box {
+        grid-column: 1 / -1 !important;
+        grid-row: auto !important;
+    }
+}
+
+code {
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+
+.page-layout {
+    max-width: 1300px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.action-items {
+    margin: 2rem auto 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.25rem;
+    position: sticky;
+    top: 1.5rem;
+}
+
+.action-items h2 {
+    margin: 0 0 0.6rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.action-items ul {
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--ink-soft);
+}
+
+@media (max-width: 640px) {
+    .page-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .action-items {
+        position: static;
     }
 }
