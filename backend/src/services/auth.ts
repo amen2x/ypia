@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import { randomUUID } from "node:crypto";
-import { pool } from "../db.js";
+import { getPool } from "../db.js";
 
 const SALT_ROUNDS = 12;
 
@@ -16,6 +16,7 @@ export interface SignupInput {
 }
 
 export async function createAccount(input: SignupInput): Promise<{ userId: string }> {
+  const pool = getPool();
   const client = await pool.connect();
 
   try {
@@ -78,6 +79,7 @@ export async function verifyLogin(
   email: string,
   password: string
 ): Promise<{ id: string; fullName: string }> {
+  const pool = getPool();
   const result = await pool.query(
     "SELECT id, full_name, password_hash FROM users WHERE email = $1",
     [email]

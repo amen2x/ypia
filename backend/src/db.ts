@@ -1,6 +1,10 @@
 import { Pool } from "pg";
 import type { PoolConfig } from "pg";
 
+let pool: Pool | null = null;
+
+export class DatabaseConfigurationError extends Error {}
+
 function buildPoolConfig(): PoolConfig {
   let connectionString = process.env.TIMESCALE_SERVICE_URL ?? process.env.DATABASE_URL;
 
@@ -30,10 +34,10 @@ function buildPoolConfig(): PoolConfig {
     };
   }
 
-  throw new Error(
-    "Neither TIMESCALE_SERVICE_URL nor PGHOST found in environment. " +
-      "Add your Tiger Cloud connection details to backend/.env"
-  );
+  throw new DatabaseConfigurationError("Database configuration is unavailable");
 }
 
-export const pool = new Pool(buildPoolConfig());
+export function getPool(): Pool {
+  if (!pool) pool = new Pool(buildPoolConfig());
+  return pool;
+}

@@ -7,6 +7,7 @@ import multer from "multer";
 import { extractDocument } from "./services/documentExtractor.js";
 import { normalizeMedications } from "./services/normalizeMedications.js";
 import { createAccount, verifyLogin, AuthError } from "./services/auth.js";
+import { DatabaseConfigurationError } from "./db.js";
 import { signupSchema, loginSchema } from "./schemas.js";
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -30,6 +31,12 @@ function errorHandler(error: unknown, _request: Request, response: Response, _ne
     return;
   }
 
+  if (error instanceof DatabaseConfigurationError) {
+    console.error("Database configuration unavailable for authentication request");
+    response.status(500).json({ error: "Authentication service is temporarily unavailable" });
+    return;
+  }
+
   const message = error instanceof Error ? error.message : "Document processing failed";
   response.status(400).json({ error: message });
 }
@@ -38,6 +45,10 @@ export function createApp() {
   const app = express();
   app.use(cors({ origin: ALLOWED_ORIGINS }));
   app.use(express.json());
+
+  app.get("/api/health", (_request, response) => {
+    response.json({ status: "ok" });
+  });
 
   app.post("/api/documents", upload.single("document"), async (request, response, next) => {
     if (!request.file) {
