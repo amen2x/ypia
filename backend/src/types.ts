@@ -83,3 +83,8 @@ export interface ReconciliationResult {
   newFollowUps: FollowUp[];
   newInstructions: string[];
 }
+
+export interface CareUpdateResult {
+  reconciliation: ReconciliationResult;
+  nextState: CareState;
+}
