@@ -49,3 +49,37 @@ export interface NormalizedMedication extends Medication {
 export interface NormalizedDocument extends Omit<ExtractedDocument, "medications"> {
   medications: NormalizedMedication[];
 }
+
+export interface CareState {
+  medications: NormalizedMedication[];
+  appointments: Appointment[];
+  followUps: FollowUp[];
+  instructions: string[];
+}
+
+export type MedicationChangeType =
+  | "ADDED"
+  | "DOSE_CHANGED"
+  | "FREQUENCY_CHANGED"
+  | "DOSE_AND_FREQUENCY_CHANGED"
+  | "STOPPED"
+  | "CONFLICTING";
+
+export interface MedicationChange {
+  type: MedicationChangeType;
+  medicationName: string;
+  rxcui: string | null;
+  previousDose: string | null;
+  newDose: string | null;
+  previousFrequency: string | null;
+  newFrequency: string | null;
+  sourceMedication: NormalizedMedication;
+}
+
+export interface ReconciliationResult {
+  hasChanges: boolean;
+  medicationChanges: MedicationChange[];
+  newAppointments: Appointment[];
+  newFollowUps: FollowUp[];
+  newInstructions: string[];
+}

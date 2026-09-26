@@ -6,6 +6,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test-pipeline": "node --env-file=.env --import tsx src/testPipeline.ts",
+    "test-reconcile": "tsx src/testReconcileCareState.ts",
     "start": "node --env-file=.env --import tsx src/server.ts"
   },
   "dependencies": {
