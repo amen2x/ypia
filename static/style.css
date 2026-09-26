@@ -1,12 +1,18 @@
 :root {
-    --bg: #f6f5f2;
-    --surface: #ffffff;
-    --ink: #e1dec7;
-    --ink-soft: #55594f;
-    --line: #dcd9d0;
+    --bg-1: #eaf3ec;
+    /* pale sage */
+    --bg-2: #dfeef2;
+    /* pale teal */
+    --bg-3: #f7f2e9;
+    /* warm cream */
+    --surface: rgba(255, 255, 255, 0.55);
+    --surface-border: rgba(255, 255, 255, 0.6);
+    --ink: #223328;
+    --ink-soft: #52685a;
+    --line: rgba(34, 51, 40, 0.12);
     --accent: #3c6e47;
-    --accent-soft: #e7efe6;
-    --radius: 10px;
+    --accent-soft: rgba(60, 110, 71, 0.15);
+    --radius: 16px;
     --gap: 1rem;
     box-sizing: border-box;
     padding-top: env(safe-area-inset-top, 0px);
@@ -18,7 +24,6 @@
 
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: #1dae68;
     margin: 0;
     padding: 0;
@@ -34,15 +39,15 @@ h1 {
 
 
 .subtitle {
-    color: #e5acac;
+    color: #ffffff;
     text-align: center;
-    padding: 20px 0;
+
 }
 
 header {
     position: relative;
     background-image:
-        linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35)),
+        linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)),
         url('images/elders.jpeg');
     background-size: auto 50%;
 
@@ -60,7 +65,7 @@ header {
     padding: 2rem 1.5rem;
 
     text-align: center;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+
 
 }
 
@@ -107,8 +112,8 @@ header {
     display: inline-block;
     align-self: flex-start;
     font-size: 0.72rem;
-    color: var(--accent);
-    background: var(--accent-soft);
+    color: #000000;
+    background: #e7efe6;
     padding: 0.15rem 0.5rem;
     border-radius: 999px;
 }
@@ -237,5 +242,58 @@ code {
 
     .action-items {
         position: static;
+    }
+}
+
+.navbar {
+    background: #45c77f;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.75rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+}
+
+.navbar .brand {
+    color: #000000;
+    font-weight: 600;
+    font-size: 1.1rem;
+    text-decoration: none;
+}
+
+.navbar ul {
+    list-style: none;
+    display: flex;
+    gap: 1.75rem;
+    margin: 0;
+    padding: 0;
+}
+
+.navbar a {
+    color: #e7efe6;
+    text-decoration: none;
+    font-size: 0.92rem;
+}
+
+.navbar a:hover,
+.navbar a:focus-visible {
+    color: #fff;
+    text-decoration: underline;
+}
+
+/* Mobile: stack brand and links, wrap if needed */
+@media (max-width: 640px) {
+    .navbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .navbar ul {
+        flex-wrap: wrap;
+        gap: 1rem 1.25rem;
     }
 }
