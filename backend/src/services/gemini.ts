@@ -96,6 +96,20 @@ function isTransientGeminiError(error: unknown): boolean {
   return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
 }
 
+function logGeminiFailure(
+  model: (typeof models)[number],
+  error: unknown,
+  apiKey: string,
+  nextModel?: (typeof models)[number],
+): void {
+  const status = getHttpStatus(error);
+  const statusLabel = status === null ? "HTTP status unavailable" : `HTTP ${status}`;
+  const destination = nextModel ? `trying ${nextModel.label}` : "not retrying";
+  console.warn(
+    `${model.label} failed (${statusLabel}): ${sanitizeGeminiError(error, apiKey)}; ${destination}`,
+  );
+}
+
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
@@ -138,12 +152,13 @@ export async function extractWithGemini(filePath: string, mimeType: string): Pro
       return parseGeminiResponse(response.text);
     } catch (error: unknown) {
       if (!isTransientGeminiError(error) || attempt === maxAttempts) {
+        logGeminiFailure(activeModel, error, apiKey);
         if (error instanceof Error && error.message.startsWith("Gemini returned")) throw error;
         throw new Error(`Gemini extraction failed: ${sanitizeGeminiError(error, apiKey)}`);
       }
 
       const nextModel = models[modelIndex + 1];
-      console.warn(`${activeModel.label} unavailable; trying ${nextModel.label}`);
+      logGeminiFailure(activeModel, error, apiKey, nextModel);
       modelIndex += 1;
       await wait(attempt * 1000);
     }
