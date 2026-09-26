@@ -1,0 +1,51 @@
+export type MedicationStatus = "active" | "started" | "stopped" | "changed" | "unknown";
+
+export interface Medication {
+  name: string;
+  dose: string | null;
+  frequency: string | null;
+  status: MedicationStatus;
+}
+
+export interface Appointment {
+  type: string | null;
+  provider: string | null;
+  date: string | null;
+  time: string | null;
+  location: string | null;
+}
+
+export interface FollowUp {
+  description: string;
+  timeframe: string | null;
+}
+
+export type DocumentType =
+  | "prescription"
+  | "after_visit_summary"
+  | "discharge_summary"
+  | "appointment"
+  | "lab"
+  | "other";
+
+export interface ExtractedDocument {
+  documentType: DocumentType;
+  medications: Medication[];
+  appointments: Appointment[];
+  followUps: FollowUp[];
+  instructions: string[];
+}
+
+export interface RxNormMedication {
+  originalName: string;
+  rxcui: string | null;
+  normalizedName: string | null;
+}
+
+export interface NormalizedMedication extends Medication {
+  rxnorm: Pick<RxNormMedication, "rxcui" | "normalizedName">;
+}
+
+export interface NormalizedDocument extends Omit<ExtractedDocument, "medications"> {
+  medications: NormalizedMedication[];
+}

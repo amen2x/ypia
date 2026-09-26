@@ -1,0 +1,33 @@
+{
+  "documentType": "after_visit_summary",
+  "medications": [
+    {
+      "name": "Lisinopril",
+      "dose": "20 mg",
+      "frequency": "once daily",
+      "status": "active"
+    },
+    {
+      "name": "Metoprolol",
+      "dose": "25 mg",
+      "frequency": "once daily",
+      "status": "started"
+    }
+  ],
+  "appointments": [
+    {
+      "type": "Cardiology follow-up",
+      "provider": "Dr. Avery Chen",
+      "date": null,
+      "time": null,
+      "location": "Northside Cardiology Clinic"
+    }
+  ],
+  "followUps": [
+    {
+      "description": "Schedule a cardiology follow-up.",
+      "timeframe": "within 7 days"
+    }
+  ],
+  "instructions": ["Monitor blood pressure daily.", "Bring your blood pressure log to the follow-up visit."]
+}
