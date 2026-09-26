@@ -5,12 +5,18 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test-pipeline": "tsx src/testPipeline.ts"
+    "test-pipeline": "node --env-file=.env --import tsx src/testPipeline.ts",
+    "start": "node --env-file=.env --import tsx src/server.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.24.0",
+    "express": "^5.2.1",
+    "multer": "^2.4.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
     "@types/node": "^22.13.10",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"
