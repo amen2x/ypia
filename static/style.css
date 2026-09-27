@@ -1,4 +1,3 @@
-Style · CSS
 /* =========================================================
    Y.P.I.A — caregiver dashboard
    Warm editorial look: cream paper, evergreen ink, soft glass
@@ -186,51 +185,198 @@ button {
 
 .hero-inner {
     position: relative;
+    isolation: isolate;
     overflow: hidden;
     border-radius: calc(var(--radius) + 6px);
-    min-height: 300px;
+    min-height: clamp(360px, 36vw, 520px);
+    /* taller banner = less of each photo cropped */
     padding: clamp(2rem, 5vw, 3.5rem);
+    padding-bottom: clamp(3.5rem, 6vw, 4.25rem);
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
     color: #fffaf0;
     background-color: var(--forest);
-    background-image:
-        linear-gradient(100deg, rgba(19, 38, 28, 0.94) 0%, rgba(19, 38, 28, 0.72) 45%, rgba(19, 38, 28, 0.15) 100%),
-        url('images/elders.jpeg');
-    background-size: cover, auto 100%;
-    background-repeat: no-repeat, repeat-x;
-    background-position: center, 0% 50%;
-    animation: panHeader 80s linear infinite;
     box-shadow: var(--shadow-lift);
+}
+
+/* --- carousel slides --- */
+.hero-slides {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+}
+
+.hero-slide {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    transition: opacity 1.2s ease;
+}
+
+.hero-slide.is-active {
+    opacity: 1;
+}
+
+.hero-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    /* --focus = where the faces are. Default keeps the upper part of the photo in frame.
+     Override per photo in the HTML, e.g. style="--focus: 70% 20%" (x% y%). */
+    object-position: var(--focus, 50% 22%);
+    transform-origin: var(--focus, 50% 22%);
+    transform: scale(1.06);
+    transition: transform 7s ease-out;
+}
+
+/* gentle push-in toward the faces, ending at full frame so nothing stays cropped */
+.hero-slide.is-active img {
+    transform: scale(1);
+}
+
+.hero-shade {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+        linear-gradient(100deg, rgba(19, 38, 28, 0.94) 0%, rgba(19, 38, 28, 0.7) 42%, rgba(19, 38, 28, 0.1) 100%),
+        linear-gradient(0deg, rgba(19, 38, 28, 0.55) 0%, transparent 35%);
 }
 
 /* soft glow blob for depth */
 .hero-inner::after {
     content: "";
     position: absolute;
+    z-index: -1;
     right: -8rem;
     top: -8rem;
     width: 26rem;
     height: 26rem;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(241, 200, 107, 0.35), transparent 65%);
+    background: radial-gradient(circle, rgba(241, 200, 107, 0.3), transparent 65%);
     pointer-events: none;
 }
 
-@keyframes panHeader {
-    0% {
-        background-position: center, 0% 50%;
+.hero-content {
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- carousel controls --- */
+.hero-controls {
+    position: absolute;
+    right: clamp(1rem, 3vw, 1.75rem);
+    bottom: clamp(1rem, 3vw, 1.5rem);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.35rem;
+    border-radius: 999px;
+    background: rgba(19, 38, 28, 0.45);
+    border: 1px solid rgba(255, 250, 240, 0.18);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.hero-arrow {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0 0 3px;
+    font-size: 1.4rem;
+    line-height: 1;
+    color: #fffaf0;
+    background: rgba(255, 250, 240, 0.1);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.hero-arrow:hover {
+    background: rgba(255, 250, 240, 0.25);
+    transform: scale(1.06);
+}
+
+.hero-dots {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.hero-dot {
+    position: relative;
+    width: 9px;
+    height: 9px;
+    padding: 0;
+    overflow: hidden;
+    border: none;
+    border-radius: 999px;
+    background: rgba(255, 250, 240, 0.35);
+    cursor: pointer;
+    transition: width 0.35s ease, background 0.2s ease;
+}
+
+.hero-dot:hover {
+    background: rgba(255, 250, 240, 0.6);
+}
+
+.hero-dot.is-active {
+    width: 34px;
+    background: rgba(255, 250, 240, 0.3);
+}
+
+/* progress fill on the active dot while autoplay runs */
+.hero-dot.is-active::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--butter);
+    transform-origin: left;
+    transform: scaleX(1);
+}
+
+.hero-inner.is-timing .hero-dot.is-active::after {
+    animation: dotFill var(--hero-interval, 6000ms) linear forwards;
+}
+
+.hero-inner.is-paused .hero-dot.is-active::after {
+    animation-play-state: paused;
+}
+
+@keyframes dotFill {
+    from {
+        transform: scaleX(0);
     }
 
-    100% {
-        background-position: center, 2000px 50%;
+    to {
+        transform: scaleX(1);
     }
 }
 
+.hero-inner.single-slide .hero-controls {
+    display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
+
+    .hero-slide,
+    .hero-slide img {
+        transition: none;
+    }
+}
+
+@media (max-width: 640px) {
     .hero-inner {
-        animation: none;
+        min-height: 420px;
+    }
+
+    .hero-arrow {
+        display: none;
     }
 }
 
@@ -1642,10 +1788,6 @@ footer {
         grid-template-columns: 1fr auto;
     }
 
-    .navbar-profile {
-        display: none;
-    }
-
     .hero-inner {
         min-height: 240px;
     }
@@ -1653,4 +1795,298 @@ footer {
     .rx-box {
         flex-wrap: wrap;
     }
+}
+
+/* ---------------- Nav links & pages ---------------- */
+
+.nav-links {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.3rem;
+    border-radius: 999px;
+    background: rgba(21, 38, 29, 0.06);
+}
+
+.nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.95rem;
+    border-radius: 999px;
+    font-size: 0.86rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--ink-soft);
+    text-decoration: none;
+    transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.nav-link:hover {
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.55);
+}
+
+.nav-link.is-active {
+    color: var(--ink);
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(21, 38, 29, 0.08), 0 4px 12px -6px rgba(21, 38, 29, 0.25);
+}
+
+.nav-right {
+    justify-self: end;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+/* Hero only on the dashboard */
+body:not([data-view="dashboard"]) .hero {
+    display: none;
+}
+
+.views {
+    min-width: 0;
+}
+
+.view[hidden] {
+    display: none;
+}
+
+.view {
+    animation: viewIn 0.25s ease;
+}
+
+@keyframes viewIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.page-head {
+    position: relative;
+    margin-top: 1.5rem;
+    margin-bottom: 1.1rem;
+    padding: 2rem clamp(1.25rem, 3vw, 2rem);
+    overflow: hidden;
+    border-radius: calc(var(--radius) + 4px);
+    color: #fffaf0;
+    background:
+        radial-gradient(30rem 16rem at 100% 0%, color-mix(in srgb, var(--card-accent) 55%, transparent), transparent 70%),
+        var(--forest);
+    box-shadow: var(--shadow-lift);
+}
+
+.page-eyebrow {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 250, 240, 0.65);
+}
+
+.page-title {
+    margin: 0.4rem 0 0.35rem;
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    font-weight: 800;
+    line-height: 1.05;
+    color: #fffaf0;
+}
+
+.page-sub {
+    margin: 0;
+    max-width: 52ch;
+    font-size: 0.98rem;
+    color: rgba(255, 250, 240, 0.8);
+}
+
+.page-box {
+    min-height: 220px;
+}
+
+.page-box .notes-display {
+    max-height: none;
+    min-height: 140px;
+}
+
+/* Prescriptions keeps its own container */
+.rx-container {
+    display: flex;
+    align-items: center;
+    gap: 1.1rem;
+    padding: 1.1rem 1.2rem;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--sky);
+}
+
+.panel-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+/* Navbar: move links to their own row on narrow screens */
+@media (max-width: 1100px) {
+    .welcome-text {
+        display: none;
+    }
+
+    .navbar-profile {
+        padding: 0.25rem;
+    }
+}
+
+@media (max-width: 860px) {
+    .navbar {
+        grid-template-columns: 1fr auto;
+        row-gap: 0.6rem;
+    }
+
+    .nav-links {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        overflow-x: auto;
+        justify-self: stretch;
+    }
+
+    .nav-link {
+        flex: 1 0 auto;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 640px) {
+    .nav-link span {
+        display: none;
+    }
+
+    .nav-link {
+        font-size: 1.05rem;
+    }
+
+    .rx-container {
+        flex-wrap: wrap;
+    }
+}
+
+.rx-container .rx-body {
+    flex: 1 1 220px;
+}
+
+/* ---------------- Scrollable event lists ---------------- */
+
+.scroll-wrap {
+    position: relative;
+}
+
+.scroll-list {
+    max-height: 292px;
+    /* about 3 events */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding-right: 4px;
+    margin-right: -4px;
+    /* scrollbar hidden until hover (Firefox + modern Chromium) */
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.2s ease;
+}
+
+.scroll-list--short {
+    max-height: 196px;
+    /* about 2 events */
+}
+
+.scroll-list:hover,
+.scroll-list:focus-visible {
+    scrollbar-color: rgba(21, 38, 29, 0.28) transparent;
+}
+
+/* older WebKit/Safari */
+.scroll-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.scroll-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scroll-list::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 999px;
+}
+
+.scroll-list:hover::-webkit-scrollbar-thumb {
+    background: rgba(21, 38, 29, 0.28);
+}
+
+.scroll-list:focus-visible {
+    outline: 2px solid var(--terra);
+    outline-offset: 4px;
+    border-radius: 14px;
+}
+
+/* soft fades at the edges when there is more to scroll */
+.scroll-wrap.fade-bottom .scroll-list {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 56px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 56px), transparent);
+}
+
+.scroll-wrap.fade-top .scroll-list {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px);
+    mask-image: linear-gradient(to bottom, transparent, #000 28px);
+}
+
+.scroll-wrap.fade-top.fade-bottom .scroll-list {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px, #000 calc(100% - 56px), transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 28px, #000 calc(100% - 56px), transparent);
+}
+
+.scroll-hint {
+    position: absolute;
+    left: 50%;
+    bottom: 4px;
+    transform: translateX(-50%);
+    padding: 0.25rem 0.7rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    box-shadow: 0 4px 12px -6px rgba(21, 38, 29, 0.35);
+    cursor: pointer;
+    transition: transform 0.15s ease, opacity 0.2s ease;
+}
+
+.scroll-hint:hover {
+    transform: translateX(-50%) translateY(-1px);
+}
+
+.scroll-hint[hidden] {
+    display: none;
+}
+
+/* the list scrolls, so the item hover nudge shouldn't cause sideways scroll */
+.scroll-list .appointment-item:hover {
+    transform: none;
+}
+
+/* keep compact buttons on one line */
+.upload-btn,
+.shared-document-item .btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.shared-document-item .doc-meta {
+    flex: 1;
 }

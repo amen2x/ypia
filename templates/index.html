@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
- 
+
   <!-- Redirect to login if no user is stored locally -->
   <script>
     if (!localStorage.getItem("ypia_user")) {
@@ -16,65 +16,107 @@
     }
   </script>
 </head>
- 
+
 <body>
   <nav class="navbar">
-    <a href="#" class="brand"><span class="brand-mark" aria-hidden="true"></span>Y.P.I.A</a>
- 
-    <div class="navbar-profile">
-      <img src="/static/images/man.jpeg" alt="Profile picture" class="profile-image">
-      <span class="welcome-text">Welcome back, <span id="logged-in-user">User</span></span>
+    <a href="#dashboard" class="brand"><span class="brand-mark" aria-hidden="true"></span>Y.P.I.A</a>
+
+    <div class="nav-links" role="navigation" aria-label="Pages">
+      <a href="#dashboard" class="nav-link" data-view="dashboard" aria-label="Dashboard">🏠 <span>Dashboard</span></a>
+      <a href="#prescriptions" class="nav-link" data-view="prescriptions" aria-label="Prescriptions">💊 <span>Prescriptions</span></a>
+      <a href="#summary" class="nav-link" data-view="summary" aria-label="Summary">🌿 <span>Summary</span></a>
+      <a href="#documents" class="nav-link" data-view="documents" aria-label="Documents">📄 <span>Documents</span></a>
+      <a href="#factcheck" class="nav-link" data-view="factcheck" aria-label="Fact check">🧐 <span>Fact check</span></a>
     </div>
- 
-    <button class="upload-btn" id="openUploadModal">⬆ Upload documents</button>
+
+    <div class="nav-right">
+      <div class="navbar-profile">
+        <img src="/static/images/man.jpeg" alt="Profile picture" class="profile-image">
+        <span class="welcome-text">Welcome back, <span id="logged-in-user">User</span></span>
+      </div>
+      <button class="upload-btn" id="openUploadModal">⬆ Upload</button>
+    </div>
   </nav>
- 
+
   <section class="hero">
-    <div class="hero-inner">
-      <span class="hero-eyebrow">Caregiver dashboard</span>
-      <h1>Your parent is aging. <em>Let us help.</em></h1>
-      <p class="hero-sub">Schedules, mood, medications and to-dos — all in one calm place.</p>
-      <blockquote class="hero-quote">
-        “To care for those who once cared for us is one of the highest honors.”
-        <cite>— Tia Walker</cite>
-      </blockquote>
+    <div class="hero-inner" id="heroCarousel" aria-roledescription="carousel" aria-label="Featured photos">
+
+      <!-- Swap these three images for your own (keep them in /static/images/).
+           If a crop cuts off heads, change --focus on that slide: "x% y%" = where the faces are.
+           Lower y (e.g. 10%) keeps more of the top; higher x (e.g. 75%) favors the right side. -->
+      <div class="hero-slides">
+        <figure class="hero-slide is-active" aria-roledescription="slide" aria-label="1 of 3" style="--focus: 50% 22%">
+          <img src="/static/images/elders.jpeg" alt="Older couple smiling together">
+        </figure>
+        <figure class="hero-slide" aria-roledescription="slide" aria-label="2 of 3" aria-hidden="true" style="--focus: 50% 22%">
+          <img src="/static/images/elders2.jpeg" alt="Grandmother laughing with family" loading="lazy">
+        </figure>
+        <figure class="hero-slide" aria-roledescription="slide" aria-label="3 of 3" aria-hidden="true" style="--focus: 50% 22%">
+          <img src="/static/images/elders3.jpeg" alt="Older man gardening outdoors" loading="lazy">
+        </figure>
+      </div>
+      <div class="hero-shade" aria-hidden="true"></div>
+
+      <div class="hero-content">
+        <span class="hero-eyebrow">Caregiver dashboard</span>
+        <h1>Your parent is aging. <em>Let us help.</em></h1>
+        <p class="hero-sub">Schedules, mood, medications and to-dos — all in one calm place.</p>
+        <blockquote class="hero-quote">
+          “To care for those who once cared for us is one of the highest honors.”
+          <cite>— Tia Walker</cite>
+        </blockquote>
+      </div>
+
+      <div class="hero-controls">
+        <button class="hero-arrow" type="button" data-dir="-1" aria-label="Previous photo">‹</button>
+        <div class="hero-dots" role="tablist" aria-label="Choose photo">
+          <button class="hero-dot is-active" type="button" role="tab" aria-label="Photo 1" aria-selected="true"></button>
+          <button class="hero-dot" type="button" role="tab" aria-label="Photo 2" aria-selected="false"></button>
+          <button class="hero-dot" type="button" role="tab" aria-label="Photo 3" aria-selected="false"></button>
+        </div>
+        <button class="hero-arrow" type="button" data-dir="1" aria-label="Next photo">›</button>
+      </div>
     </div>
   </section>
- 
+
   <div class="page-layout">
- 
+
+    <main class="views">
+
+      <!-- ============ Dashboard ============ -->
+      <section class="view" id="view-dashboard" data-view="dashboard">
     <div class="grid">
- 
+
       <!-- Updates / schedule -->
       <div class="box box--sage w-6 h-3">
         <h2 class="tag">General update</h2>
- 
+
         <div class="profile-header">
           <img src="/static/images/elderwoman.jpg" alt="Profile picture" class="circular-image">
           <h1 class="profile-name"><span id="parent-name">Susan</span>'s updates
             <span class="profile-kicker">Basic info and appointments for <span class="parent-name-echo">Susan</span></span>
           </h1>
         </div>
- 
+
         <div class="update-section">
           <div class="schedule-heading-row">
             <h3 class="section-heading">📅 Upcoming events</h3>
             <button id="scoreCalendarBtn" class="schedule-score-btn" type="button">✨ Review points with Gemini</button>
           </div>
           <p id="schedulePointsStatus" class="schedule-points-status" hidden></p>
-          <div class="appointment-list" id="upcomingEventsList">
+          <div class="appointment-list scroll-list" id="upcomingEventsList" tabindex="0" aria-label="Upcoming events">
             <p class="muted-note">Loading events...</p>
           </div>
         </div>
- 
+
         <div class="update-section">
           <h3 class="section-heading">📋 Past events</h3>
-          <div class="appointment-list" id="pastEventsList">
+          <div class="appointment-list scroll-list scroll-list--short" id="pastEventsList" tabindex="0" aria-label="Past events">
             <p class="muted-note">Loading events...</p>
           </div>
         </div>
       </div>
- 
+
       <!-- Wellness tracker -->
       <div class="box box--butter w-6 h-3">
         <h2 class="tag">Monthly wellness tracker</h2>
@@ -87,79 +129,117 @@
             </div>
             <div class="analyzeGrid" id="analyzeGrid"></div>
           </div>
- 
+
           <div class="legend" id="legend"></div>
- 
+
           <p class="mood-alert-note" id="moodAlertNote" hidden>
             4+ low-mood days in a row detected — a check-in item was added to the list.
           </p>
- 
+
           <div class="actions">
             <button class="analyze" id="examineBtn" type="button">🔍 Examine</button>
             <button class="analyze primary" id="summarizeBtn" type="button">📝 Summary</button>
           </div>
         </div>
- 
- 
+
+
       </div>
- 
-      <!-- Prescriptions -->
-      <div class="box box--sky w-12 h-1 rx-box">
-        <div class="rx-icon" aria-hidden="true">💊</div>
-        <div class="rx-body">
-          <h2 class="tag"><span class="parent-name-echo">Susan</span>'s current prescriptions</h2>
-          <p>A list of the medications <span class="parent-name-echo">Susan</span> is taking, with a status that updates based on her prescriptions.</p>
-        </div>
-        <span class="status-indicator" data-status="good">All on track</span>
-      </div>
- 
-      <!-- Summary & preferences -->
-      <div class="box box--terra w-4 h-2" id="parentSummaryBox">
-        <h2 class="tag"><span class="parent-name-echo">Susan</span>'s summary &amp; preferences</h2>
-        <p>What <span class="parent-name-echo">Susan</span> enjoys, daily routines, hobbies, and background notes.</p>
- 
-        <div id="backgroundNotesContainer">
-          <p id="backgroundNotesDisplay" class="notes-display">Loading details...</p>
-        </div>
- 
-        <div id="notesEditSection">
-          <textarea id="backgroundNotesTextarea" rows="4" placeholder="Enter what your parent enjoys, hobbies, food preferences, daily routine, or background notes..."></textarea>
-          <div class="row-end">
-            <button id="cancelNotesBtn" type="button" class="btn">Cancel</button>
-            <button id="saveNotesBtn" type="button" class="btn btn--primary">Save</button>
+
+
+    </div>
+      </section>
+
+      <!-- ============ Prescriptions ============ -->
+      <section class="view" id="view-prescriptions" data-view="prescriptions" hidden>
+        <header class="page-head" style="--card-accent: var(--sky);">
+          <span class="page-eyebrow">Medications</span>
+          <h1 class="page-title"><span class="parent-name-echo">Susan</span>'s prescriptions</h1>
+          <p class="page-sub">What she is taking right now, and whether everything looks on track.</p>
+        </header>
+        <div class="box box--sky page-box">
+          <div class="rx-container">
+            <div class="rx-icon" aria-hidden="true">💊</div>
+            <div class="rx-body">
+              <h2 class="tag"><span class="parent-name-echo">Susan</span>'s current prescriptions</h2>
+              <p>A list of the medications <span class="parent-name-echo">Susan</span> is taking, with a status that updates based on her prescriptions.</p>
+            </div>
+            <span class="status-indicator" data-status="good">All on track</span>
           </div>
         </div>
- 
-        <div id="notesActionButtons">
-          <button id="editBackgroundBtn" type="button" class="btn btn--soft">✏️ Edit notes</button>
-          <button id="uploadBackgroundBtn" type="button" class="btn btn--primary">📁 Upload file</button>
-          <input type="file" id="backgroundFileInput" accept=".txt,.json,.md,.csv,text/plain,application/json,text/markdown" hidden>
+      </section>
+
+      <!-- ============ Summary & preferences ============ -->
+      <section class="view" id="view-summary" data-view="summary" hidden>
+        <header class="page-head" style="--card-accent: var(--terra);">
+          <span class="page-eyebrow">About her</span>
+          <h1 class="page-title"><span class="parent-name-echo">Susan</span>'s summary &amp; preferences</h1>
+          <p class="page-sub">The little things that make a visit, a meal or a conversation go well.</p>
+        </header>
+        <div class="box box--terra page-box">
+          <div id="parentSummaryBox" class="panel-stack">
+            <h2 class="tag"><span class="parent-name-echo">Susan</span>'s summary &amp; preferences</h2>
+            <p>What <span class="parent-name-echo">Susan</span> enjoys, daily routines, hobbies, and background notes.</p>
+
+            <div id="backgroundNotesContainer">
+              <p id="backgroundNotesDisplay" class="notes-display">Loading details...</p>
+            </div>
+
+            <div id="notesEditSection">
+              <textarea id="backgroundNotesTextarea" rows="4" placeholder="Enter what your parent enjoys, hobbies, food preferences, daily routine, or background notes..."></textarea>
+              <div class="row-end">
+                <button id="cancelNotesBtn" type="button" class="btn">Cancel</button>
+                <button id="saveNotesBtn" type="button" class="btn btn--primary">Save</button>
+              </div>
+            </div>
+
+            <div id="notesActionButtons">
+              <button id="editBackgroundBtn" type="button" class="btn btn--soft">✏️ Edit notes</button>
+              <button id="uploadBackgroundBtn" type="button" class="btn btn--primary">📁 Upload file</button>
+              <input type="file" id="backgroundFileInput" accept=".txt,.json,.md,.csv,text/plain,application/json,text/markdown" hidden>
+            </div>
+
+            <p id="backgroundSaveStatus" class="save-status" hidden></p>
+          </div>
         </div>
- 
-        <p id="backgroundSaveStatus" class="save-status" hidden></p>
-      </div>
- 
-      <!-- Fact check -->
-      <div class="box box--plum w-8 h-2">
-        <h2 class="tag">Fact-check that message</h2>
-        <div class="empty-feature">
-          <span class="feature-icon" aria-hidden="true">🧐</span>
-          <span class="soon">Coming soon</span>
-          <p>Mom sent a questionable link or post? Paste it here to get a kind but factual response you can send back.</p>
-        </div>
-      </div>
- 
-      <!-- Shared documents -->
-      <div class="box box--sage w-12 h-2" id="sharedDocumentsBox">
-        <h2 class="tag">Shared documents</h2>
+      </section>
+
+      <!-- ============ Documents ============ -->
+      <section class="view" id="view-documents" data-view="documents" hidden>
+        <header class="page-head" style="--card-accent: var(--accent);">
+          <span class="page-eyebrow">Records</span>
+          <h1 class="page-title"><span class="parent-name-echo">Susan</span>'s documents</h1>
+          <p class="page-sub">Discharge notes, prescriptions and visit summaries she has shared, with the key details pulled out.</p>
+        </header>
+        <div class="box box--sage page-box" id="sharedDocumentsBox">
+          <h2 class="tag">Shared documents</h2>
         <p>Medical documents <span class="parent-name-echo">Susan</span> has shared from Y.P.I.A.</p>
         <div id="sharedDocumentsList">
           <p class="schedule-empty">No shared documents yet.</p>
         </div>
-      </div>
- 
-    </div>
- 
+        </div>
+      </section>
+
+      <!-- ============ Fact check ============ -->
+      <section class="view" id="view-factcheck" data-view="factcheck" hidden>
+        <header class="page-head" style="--card-accent: var(--plum);">
+          <span class="page-eyebrow">Kindly correct</span>
+          <h1 class="page-title">Fact-check that message</h1>
+          <p class="page-sub">Got a forwarded post that seems off? Get a gentle, factual reply you can send back.</p>
+        </header>
+        <div class="box box--plum page-box">
+          <div class="panel-stack">
+            <h2 class="tag">Fact-check that message</h2>
+            <div class="empty-feature">
+              <span class="feature-icon" aria-hidden="true">🧐</span>
+              <span class="soon">Coming soon</span>
+              <p>Mom sent a questionable link or post? Paste it here to get a kind but factual response you can send back.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
     <!-- Action items -->
     <aside class="action-items">
       <div class="action-items-header">
@@ -182,7 +262,7 @@
           <div class="wheel-label" id="wheelLabel">0%</div>
         </div>
       </div>
- 
+
       <div class="actionList" id="actionList">
         <div class="action-item" draggable="true" data-urgency="low" data-date="2026-09-29">
           <span class="drag-handle">⋮⋮</span>
@@ -196,7 +276,7 @@
           </select>
           <button class="cal-btn" title="Add to Google Calendar">📅</button>
         </div>
- 
+
         <div class="action-item" draggable="true" data-urgency="medium" data-date="2026-10-05">
           <span class="drag-handle">⋮⋮</span>
           <input type="checkbox" id="physicaltherapy">
@@ -209,7 +289,7 @@
           </select>
           <button class="cal-btn" title="Add to Google Calendar">📅</button>
         </div>
- 
+
         <div class="action-item" draggable="true" data-urgency="high" data-date="2026-10-10">
           <span class="drag-handle">⋮⋮</span>
           <input type="checkbox" id="mentalhealth">
@@ -223,20 +303,20 @@
           <button class="cal-btn" title="Add to Google Calendar">📅</button>
         </div>
       </div>
- 
+
       <div class="add-item-row">
         <input type="text" id="newItemInput" placeholder="Add a new item...">
         <input type="date" id="newItemDate" required>
         <button id="addItemBtn" aria-label="Add item">+</button>
       </div>
     </aside>
- 
+
     <footer>
       Y.P.I.A · Thank you for caring. 💚
     </footer>
- 
+
   </div>
- 
+
   <!-- Modals live at the top level so card effects never clip them -->
         <div class="modal-overlay" id="examineModal" hidden>
           <div class="modal-box">
@@ -260,11 +340,11 @@
           <div id="documentDetailsModalBody"></div>
         </div>
       </div>
- 
+
  
 <script>
 const API_BASE = window.location.port === "3000" ? "" : "http://localhost:3000";
- 
+
 async function getOrFetchParentId(user) {
   // Always refresh the link for the signed-in account. A cached parentId can
   // belong to a previous test login and make the child see the wrong calendar.
@@ -283,10 +363,10 @@ async function getOrFetchParentId(user) {
       console.warn("Could not fetch linked parent from backend:", err);
     }
   }
- 
+
   // Use the cached value only when the backend cannot be reached.
   if (user && user.parentId) return user.parentId;
- 
+
   // Fallback: check if we can query parents list
   try {
     const res = await fetch(`${API_BASE}/api/parents`);
@@ -301,10 +381,10 @@ async function getOrFetchParentId(user) {
   } catch (err) {
     console.warn("Could not fetch parents list:", err);
   }
- 
+
   return null;
 }
- 
+
 function updateParentNameDisplay(name) {
   if (!name) return;
   const parentNameEl = document.getElementById('parent-name');
@@ -313,7 +393,7 @@ function updateParentNameDisplay(name) {
     el.textContent = name;
   });
 }
- 
+
 const EVENT_ICONS = {
   Medical: "🩺",
   Church: "⛪",
@@ -323,12 +403,12 @@ const EVENT_ICONS = {
   Community: "🌿"
 };
 let activeParentId = null;
- 
+
 function formatEventDate(startTime, endTime) {
   const start = new Date(startTime);
   const end = new Date(endTime);
   if (Number.isNaN(start.getTime())) return "Date and time unavailable";
- 
+
   const date = new Intl.DateTimeFormat(undefined, {
     weekday: "short",
     month: "short",
@@ -341,14 +421,14 @@ function formatEventDate(startTime, endTime) {
   const endTimeLabel = !Number.isNaN(end.getTime())
     ? new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(end)
     : null;
- 
+
   return `${date} · ${time}${endTimeLabel ? `–${endTimeLabel}` : ""}`;
 }
- 
+
 function renderEvents(container, events, emptyMessage, parentId = activeParentId) {
   if (!container) return;
   container.replaceChildren();
- 
+
   if (!Array.isArray(events) || events.length === 0) {
     const empty = document.createElement("p");
     empty.className = "schedule-empty";
@@ -356,11 +436,11 @@ function renderEvents(container, events, emptyMessage, parentId = activeParentId
     container.append(empty);
     return;
   }
- 
+
   events.forEach((event) => {
     const item = document.createElement("article");
     item.className = "appointment-item schedule-event";
- 
+
     const text = document.createElement("div");
     text.className = "appointment-text";
     const title = document.createElement("strong");
@@ -368,14 +448,14 @@ function renderEvents(container, events, emptyMessage, parentId = activeParentId
     const when = document.createElement("span");
     when.textContent = formatEventDate(event.start_time, event.end_time);
     text.append(title, when);
- 
+
     if (event.location) {
       const location = document.createElement("span");
       location.className = "schedule-location";
       location.textContent = event.location;
       text.append(location);
     }
- 
+
     const points = document.createElement("span");
     points.className = "schedule-points";
     if (event.point_value == null) {
@@ -389,33 +469,33 @@ function renderEvents(container, events, emptyMessage, parentId = activeParentId
     }
     if (event.points_review) points.title = event.points_review;
     text.append(points);
- 
+
     const icon = document.createElement("div");
     icon.className = "appointment-icon";
     icon.title = event.category || "Event";
     icon.setAttribute("aria-label", event.category || "Event");
     icon.textContent = EVENT_ICONS[event.category] || "📅";
- 
+
     item.append(text, icon);
     container.append(item);
   });
 }
- 
+
 async function loadSchedule(parentId) {
   activeParentId = parentId;
   const upcoming = document.getElementById("upcomingEventsList");
   const past = document.getElementById("pastEventsList");
- 
+
   try {
     const [upcomingResponse, pastResponse] = await Promise.all([
       fetch(`${API_BASE}/api/parents/${encodeURIComponent(parentId)}/schedule`),
       fetch(`${API_BASE}/api/parents/${encodeURIComponent(parentId)}/schedule/past`)
     ]);
     if (!upcomingResponse.ok || !pastResponse.ok) throw new Error("Could not load events");
- 
+
     const upcomingEvents = await upcomingResponse.json();
     const pastEvents = await pastResponse.json();
- 
+
     // Limit upcoming events to a maximum of 5
     renderEvents(upcoming, upcomingEvents.slice(0, 5), "No upcoming events scheduled.", parentId);
     renderEvents(past, pastEvents, "No past events yet.", parentId);
@@ -425,19 +505,19 @@ async function loadSchedule(parentId) {
     renderEvents(past, [], "Unable to load past events right now.");
   }
 }
- 
+
 async function reviewScheduleWithGemini() {
   const statusMessage = document.getElementById("schedulePointsStatus");
   const button = document.getElementById("scoreCalendarBtn");
   if (!activeParentId) return;
- 
+
   if (button) button.disabled = true;
   if (statusMessage) {
     statusMessage.textContent = "Gemini is reviewing each day's events…";
     statusMessage.className = "schedule-points-status";
     statusMessage.hidden = false;
   }
- 
+
   try {
     const response = await fetch(`${API_BASE}/api/parents/${encodeURIComponent(activeParentId)}/schedule/score`, { method: "POST" });
     const data = await response.json().catch(() => ({}));
@@ -454,14 +534,14 @@ async function reviewScheduleWithGemini() {
     if (button) button.disabled = false;
   }
 }
- 
+
 function toggleEditNotes(showEdit) {
   const editSection = document.getElementById('notesEditSection');
   const notesContainer = document.getElementById('backgroundNotesContainer');
   const notesActions = document.getElementById('notesActionButtons');
   const textarea = document.getElementById('backgroundNotesTextarea');
   const display = document.getElementById('backgroundNotesDisplay');
- 
+
   if (showEdit) {
     if (textarea && display) {
       const current = display.textContent.trim();
@@ -478,23 +558,23 @@ function toggleEditNotes(showEdit) {
     if (notesActions) notesActions.style.display = "flex";
   }
 }
- 
+
 async function loadParentData() {
   const user = JSON.parse(localStorage.getItem("ypia_user") || "{}");
- 
+
   if (user.fullName) {
     const userEl = document.getElementById('logged-in-user');
     if (userEl) userEl.textContent = user.fullName;
   }
- 
+
   if (user.role === "parent") {
     window.location.href = "/parent";
     return;
   }
- 
+
   const display = document.getElementById('backgroundNotesDisplay');
   const textarea = document.getElementById('backgroundNotesTextarea');
- 
+
   const parentId = await getOrFetchParentId(user);
   if (!parentId) {
     if (display) display.textContent = "No parent profile linked yet. Sign up or log in with your parent's email to link accounts.";
@@ -502,14 +582,14 @@ async function loadParentData() {
     renderEvents(document.getElementById("pastEventsList"), [], "Link a parent profile to see past events.");
     return;
   }
- 
+
   try {
     const res = await fetch(`${API_BASE}/api/parents/${parentId}`);
     if (!res.ok) throw new Error(`Failed to load parent (${res.status})`);
     const parent = await res.json();
- 
+
     updateParentNameDisplay(parent.name);
- 
+
     const notes = parent.background_notes || "No background info yet. Click 'Edit Notes' or 'Upload File' to add what they enjoy, hobbies, or preferences.";
     if (display) display.textContent = notes;
     if (textarea) textarea.value = parent.background_notes || "";
@@ -519,14 +599,14 @@ async function loadParentData() {
     if (display) display.textContent = "No background info yet. Click 'Edit Notes' or 'Upload File' to add what they enjoy, hobbies, or preferences.";
   }
 }
- 
+
 async function uploadBackgroundFile(file) {
   const user = JSON.parse(localStorage.getItem("ypia_user") || "{}");
   const display = document.getElementById('backgroundNotesDisplay');
   const textarea = document.getElementById('backgroundNotesTextarea');
   const status = document.getElementById('backgroundSaveStatus');
   const uploadBtn = document.getElementById('uploadBackgroundBtn');
- 
+
   const parentId = await getOrFetchParentId(user);
   if (!parentId) {
     if (status) {
@@ -536,17 +616,17 @@ async function uploadBackgroundFile(file) {
     }
     return;
   }
- 
+
   if (status) {
     status.style.color = "var(--ink-soft)";
     status.textContent = "Uploading and saving...";
     status.hidden = false;
   }
   if (uploadBtn) uploadBtn.disabled = true;
- 
+
   const formData = new FormData();
   formData.append("file", file);
- 
+
   try {
     const res = await fetch(`${API_BASE}/api/parents/${parentId}/background/upload`, {
       method: "PUT",
@@ -579,14 +659,14 @@ async function uploadBackgroundFile(file) {
     if (fileInput) fileInput.value = "";
   }
 }
- 
+
 async function saveBackgroundNotes(notesText) {
   const user = JSON.parse(localStorage.getItem("ypia_user") || "{}");
   const display = document.getElementById('backgroundNotesDisplay');
   const textarea = document.getElementById('backgroundNotesTextarea');
   const status = document.getElementById('backgroundSaveStatus');
   const saveBtn = document.getElementById('saveNotesBtn');
- 
+
   const parentId = await getOrFetchParentId(user);
   if (!parentId) {
     if (status) {
@@ -596,14 +676,14 @@ async function saveBackgroundNotes(notesText) {
     }
     return;
   }
- 
+
   if (saveBtn) saveBtn.disabled = true;
   if (status) {
     status.style.color = "var(--ink-soft)";
     status.textContent = "Saving notes...";
     status.hidden = false;
   }
- 
+
   try {
     const res = await fetch(`${API_BASE}/api/parents/${parentId}/background`, {
       method: "PUT",
@@ -614,12 +694,12 @@ async function saveBackgroundNotes(notesText) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `Save failed (${res.status})`);
     }
- 
+
     const savedText = notesText.trim() || "No background info yet. Click 'Edit Notes' or 'Upload File' to add what they enjoy, hobbies, or preferences.";
     if (display) display.textContent = savedText;
     if (textarea) textarea.value = notesText;
     toggleEditNotes(false);
- 
+
     if (status) {
       status.style.color = "#27ae60";
       status.textContent = "✓ Notes saved successfully.";
@@ -637,32 +717,32 @@ async function saveBackgroundNotes(notesText) {
     if (saveBtn) saveBtn.disabled = false;
   }
 }
- 
+
 document.getElementById('editBackgroundBtn')?.addEventListener('click', () => {
   toggleEditNotes(true);
 });
- 
+
 document.getElementById('cancelNotesBtn')?.addEventListener('click', () => {
   toggleEditNotes(false);
 });
- 
+
 document.getElementById('saveNotesBtn')?.addEventListener('click', () => {
   const textarea = document.getElementById('backgroundNotesTextarea');
   saveBackgroundNotes(textarea ? textarea.value : "");
 });
- 
+
 document.getElementById('uploadBackgroundBtn')?.addEventListener('click', () => {
   document.getElementById('backgroundFileInput')?.click();
 });
- 
+
 document.getElementById('backgroundFileInput')?.addEventListener('change', (e) => {
   if (e.target.files && e.target.files[0]) uploadBackgroundFile(e.target.files[0]);
 });
- 
+
 loadParentData();
 document.getElementById("scoreCalendarBtn")?.addEventListener("click", reviewScheduleWithGemini);
 </script>
- 
+
  <script>
   // Keep every "echo" of the parent's name in sync with the single source of truth (#parent-name)
   (function syncParentName() {
@@ -741,19 +821,19 @@ function renderLegend() {
       legend.appendChild(item);
     });
   }
- 
+
 // Click-to-reveal info box for a day square. Stays open only while the
 // mouse is still over that square; moving off (or clicking elsewhere)
 // closes it.
 let activeDayInfoBox = null;
- 
+
 function showDayInfo(cell, dayIndex) {
   hideAllDayInfo();
- 
+
   const moodIndex = state[dayIndex];
   const box = document.createElement("div");
   box.className = "day-info-box";
- 
+
   if (moodIndex >= 0) {
     const mood = moods[moodIndex];
     const streak = findLongestLowMoodStreak();
@@ -770,38 +850,38 @@ function showDayInfo(cell, dayIndex) {
       <div class="day-info-mood">Day is empty</div>
     `;
   }
- 
+
   document.body.appendChild(box);
   positionDayInfo(box, cell);
   activeDayInfoBox = box;
 }
- 
+
 // Places the box above the clicked square, flips below if there's no room
 // above, and clamps left/right so it never runs off the screen edge.
 function positionDayInfo(box, cell) {
   const rect = cell.getBoundingClientRect();
   const margin = 8;
   const boxRect = box.getBoundingClientRect();
- 
+
   let top = rect.top - boxRect.height - margin;
   if (top < margin) {
     top = rect.bottom + margin; // not enough room above — show below instead
   }
- 
+
   let left = rect.left + rect.width / 2 - boxRect.width / 2;
   left = Math.max(margin, Math.min(left, window.innerWidth - boxRect.width - margin));
- 
+
   box.style.top = `${top}px`;
   box.style.left = `${left}px`;
 }
- 
+
 function hideAllDayInfo() {
   if (activeDayInfoBox) {
     activeDayInfoBox.remove();
     activeDayInfoBox = null;
   }
 }
- 
+
 document.addEventListener("click", hideAllDayInfo);
  
   function renderGrid() {
@@ -818,17 +898,17 @@ document.addEventListener("click", hideAllDayInfo);
   const cell = document.createElement("button");
   cell.type = "button";
   cell.className = "day";
- 
+
   const moodIndex = state[i];
   cell.style.background = moodIndex >= 0 ? moods[moodIndex].color : "";
   cell.setAttribute("aria-label", dayLabel(i));
- 
+
   cell.addEventListener("click", (e) => {
     e.stopPropagation();
     showDayInfo(cell, i);
   });
   cell.addEventListener("mouseleave", hideAllDayInfo);
- 
+
   analyzeGrid.appendChild(cell);
 }
     checkMentalHealthStreak();
@@ -1060,7 +1140,7 @@ document.addEventListener("click", hideAllDayInfo);
 let completedItemCount = 0;
 const wheelFg = document.getElementById("wheelFg");
 const wheelLabel = document.getElementById("wheelLabel");
- 
+
 function updateCompletionWheel() {
      const percent = totalItemCount > 0 ? Math.round((completedItemCount / totalItemCount) * 100) : 0;
     if (wheelFg) wheelFg.style.strokeDasharray = `${percent}, 100`;
@@ -1078,10 +1158,10 @@ updateCompletionWheel();
     const dt = new Date(y, m - 1, d);
     return "Due " + dt.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
- 
+
 function addActionItem(id, text, urgency = "medium", dateStr) {
     if (document.getElementById(id)) return; // already on the list, don't duplicate
- 
+
     const item = document.createElement("div");
     item.className = "action-item";
     item.draggable = true;
@@ -1101,9 +1181,9 @@ function addActionItem(id, text, urgency = "medium", dateStr) {
     `;
     const select = item.querySelector(".urgency-select");
     if (select) select.value = urgency;
- 
+
     insertItemSorted(item);
- 
+
     totalItemCount++;
     updateCompletionWheel();
 }
@@ -1123,26 +1203,26 @@ function addActionItem(id, text, urgency = "medium", dateStr) {
         return false;
     }
 }
- 
+
 function completeItem(item) {
     item.classList.add("checked");
     completedItemCount++;
     updateCompletionWheel(); // brief strikethrough
     setTimeout(() => item.remove(), 200);
 }
- 
+
     // Checkbox strike-through
     list.addEventListener("change", (e) => {
     if (!e.target.matches('input[type="checkbox"]') || !e.target.checked) return;
- 
+
     const item = e.target.closest(".action-item");
     const actionId = item.dataset.actionId;
- 
+
     if (!actionId) {
         completeItem(item);
         return;
     }
- 
+
     // DB-backed action: only mark complete once the server confirms the update.
     const checkbox = e.target;
     checkbox.disabled = true;
@@ -1155,7 +1235,7 @@ function completeItem(item) {
         }
     });
 });
- 
+
     function insertItemSorted(item) {
     const newDate = new Date(item.dataset.date);
     const existing = Array.from(list.children);
@@ -1166,7 +1246,7 @@ function completeItem(item) {
         list.appendChild(item);
     }
 }
- 
+
     
  
     // Drag to reorder (position in the list = rank of importance)
@@ -1226,14 +1306,14 @@ function completeItem(item) {
         const select = item.querySelector('.urgency-select');
         if (select) select.value = item.dataset.urgency || 'medium';
     });
- 
+
     // Live caregiver actions from Tiger Data (e.g. created by Yupia through voice).
     // Rendered through the same window.addActionItem(...) helper as everything else,
     // so drag/urgency/calendar/checkbox behavior above applies to these unchanged.
     function buildCaregiverActionLabel(action) {
         return action.source === "voice" ? `${action.text} — via Yupia` : action.text;
     }
- 
+
     async function loadCaregiverActions() {
         if (!caregiverUser?.id) return;
         try {
@@ -1241,7 +1321,7 @@ function completeItem(item) {
             if (!res.ok) return;
             const data = await res.json();
             const actions = Array.isArray(data.actions) ? data.actions : [];
- 
+
             actions
                 .filter((action) => action.status === "open")
                 .forEach((action) => {
@@ -1255,18 +1335,18 @@ function completeItem(item) {
             console.error("Failed to load caregiver actions:", err);
         }
     }
- 
+
     // Shared documents Susan has uploaded and Y.P.I.A extracted. Rendered from
     // documents.extracted_data only — never the original file, which Y.P.I.A
     // does not durably store.
     const renderedDocumentIds = new Set();
- 
+
     function escapeHtml(value) {
         const div = document.createElement("div");
         div.textContent = value == null ? "" : String(value);
         return div.innerHTML;
     }
- 
+
     function formatDocumentType(type) {
         if (!type) return "Document";
         return type
@@ -1274,21 +1354,21 @@ function completeItem(item) {
             .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
             .join(" ");
     }
- 
+
     function formatUploadedAt(iso) {
         const date = new Date(iso);
         if (Number.isNaN(date.getTime())) return "";
         return `Added ${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })} at ${date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
     }
- 
+
     function renderDocumentDetails(doc) {
         const data = doc.extractedData || {};
         const sections = [];
- 
+
         if (data.documentType) {
             sections.push(`<p><strong>Document type:</strong> ${escapeHtml(formatDocumentType(data.documentType))}</p>`);
         }
- 
+
         if (Array.isArray(data.medications) && data.medications.length > 0) {
             const items = data.medications.map((med) => {
                 const parts = [escapeHtml(med.name)];
@@ -1299,7 +1379,7 @@ function completeItem(item) {
             }).join("");
             sections.push(`<h3 style="margin-bottom:0.25rem;">Medications</h3><ul style="margin-top:0;">${items}</ul>`);
         }
- 
+
         if (Array.isArray(data.appointments) && data.appointments.length > 0) {
             const items = data.appointments.map((appt) => {
                 const parts = [appt.type, appt.provider, appt.date, appt.time, appt.location]
@@ -1309,7 +1389,7 @@ function completeItem(item) {
             }).join("");
             sections.push(`<h3 style="margin-bottom:0.25rem;">Appointments</h3><ul style="margin-top:0;">${items}</ul>`);
         }
- 
+
         if (Array.isArray(data.followUps) && data.followUps.length > 0) {
             const items = data.followUps.map((f) => {
                 const timeframe = f.timeframe ? ` (${escapeHtml(f.timeframe)})` : "";
@@ -1317,28 +1397,28 @@ function completeItem(item) {
             }).join("");
             sections.push(`<h3 style="margin-bottom:0.25rem;">Follow-ups</h3><ul style="margin-top:0;">${items}</ul>`);
         }
- 
+
         if (Array.isArray(data.instructions) && data.instructions.length > 0) {
             const items = data.instructions.map((i) => `<li>${escapeHtml(i)}</li>`).join("");
             sections.push(`<h3 style="margin-bottom:0.25rem;">Instructions</h3><ul style="margin-top:0;">${items}</ul>`);
         }
- 
+
         return sections.length > 0
             ? sections.join("")
             : "<p style=\"color:var(--ink-soft);\">No structured details were extracted from this document.</p>";
     }
- 
+
     function openDocumentDetailsModal(doc) {
         const modal = document.getElementById("documentDetailsModal");
         const title = document.getElementById("documentDetailsModalTitle");
         const body = document.getElementById("documentDetailsModalBody");
         if (!modal || !title || !body) return;
- 
+
         title.textContent = doc.documentName || "Document details";
         body.innerHTML = renderDocumentDetails(doc);
         modal.hidden = false;
     }
- 
+
     document.getElementById("documentDetailsModalClose")?.addEventListener("click", () => {
         const modal = document.getElementById("documentDetailsModal");
         if (modal) modal.hidden = true;
@@ -1346,24 +1426,24 @@ function completeItem(item) {
     document.getElementById("documentDetailsModal")?.addEventListener("click", (e) => {
         if (e.target.id === "documentDetailsModal") e.target.hidden = true;
     });
- 
+
     async function loadSharedDocuments() {
         if (!caregiverUser?.id) return;
         const container = document.getElementById("sharedDocumentsList");
         if (!container) return;
- 
+
         try {
             const res = await fetch(`${CAREGIVER_API_BASE}/api/caregiver/documents?userId=${encodeURIComponent(caregiverUser.id)}`);
             if (!res.ok) return;
             const data = await res.json();
             const documents = Array.isArray(data.documents) ? data.documents : [];
             if (documents.length === 0) return;
- 
+
             const newOnes = documents.filter((doc) => !renderedDocumentIds.has(doc.id));
             if (newOnes.length === 0) return;
- 
+
             if (renderedDocumentIds.size === 0) container.innerHTML = "";
- 
+
             // documents/newOnes are newest-first; reverse before prepending so the
             // newest of this batch ends up on top, preserving newest-first order.
             newOnes.slice().reverse().forEach((doc) => {
@@ -1386,7 +1466,7 @@ function completeItem(item) {
             console.error("Failed to load shared documents:", err);
         }
     }
- 
+
     loadCaregiverActions();
     loadSharedDocuments();
     setInterval(() => {
@@ -1406,16 +1486,16 @@ function addNewItem() {
     const dateInput = document.getElementById("newItemDate");
     const text = input.value.trim();
     const dateStr = dateInput.value;
- 
+
     dateInput.classList.remove("invalid");
- 
+
     if (!text) return;
     if (!dateStr) {
         dateInput.classList.add("invalid");
         dateInput.reportValidity(); // shows the browser's native "please fill this in" bubble
         return;
     }
- 
+
     const id = "item-" + Date.now();
     window.addActionItem(id, text, "medium", dateStr);
     input.value = "";
@@ -1427,6 +1507,142 @@ function addNewItem() {
  
  
   
+<script>
+// Simple hash router: each navbar link shows one "page" and hides the rest.
+(function () {
+  const VIEWS = ["dashboard", "prescriptions", "summary", "documents", "factcheck"];
+  const TITLES = { dashboard: "Dashboard", prescriptions: "Prescriptions", summary: "Summary & preferences", documents: "Documents", factcheck: "Fact check" };
+
+  function show() {
+    const name = location.hash.replace("#", "");
+    const view = VIEWS.includes(name) ? name : "dashboard";
+    document.querySelectorAll(".view").forEach((v) => { v.hidden = v.dataset.view !== view; });
+    document.querySelectorAll(".nav-link").forEach((a) => {
+      const on = a.dataset.view === view;
+      a.classList.toggle("is-active", on);
+      if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+    });
+    document.body.dataset.view = view;
+    document.title = "Y.P.I.A — " + TITLES[view];
+    window.scrollTo({ top: 0 });
+  }
+
+  window.addEventListener("hashchange", show);
+  show();
+})();
+</script>
+<script>
+// Hero photo carousel: crossfade, autoplay (pauses on hover/focus/hidden tab), arrows, dots, keys, swipe.
+(function () {
+  const root = document.getElementById("heroCarousel");
+  if (!root) return;
+  const slides = Array.from(root.querySelectorAll(".hero-slide"));
+  const dots = Array.from(root.querySelectorAll(".hero-dot"));
+  const INTERVAL = 6000;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let index = 0, timer = null, paused = false;
+
+  // If a photo is missing, drop that slide so the carousel never shows a blank frame.
+  slides.forEach((slide, i) => {
+    slide.querySelector("img").addEventListener("error", () => {
+      slide.remove(); dots[i]?.remove();
+    });
+  });
+  const liveSlides = () => Array.from(root.querySelectorAll(".hero-slide"));
+  const liveDots = () => Array.from(root.querySelectorAll(".hero-dot"));
+
+  function go(to) {
+    const s = liveSlides(), d = liveDots();
+    if (s.length === 0) return;
+    index = (to + s.length) % s.length;
+    s.forEach((el, i) => {
+      const on = i === index;
+      el.classList.toggle("is-active", on);
+      el.setAttribute("aria-hidden", on ? "false" : "true");
+    });
+    d.forEach((el, i) => {
+      const on = i === index;
+      el.classList.toggle("is-active", on);
+      el.setAttribute("aria-selected", on);
+    });
+    root.classList.toggle("single-slide", s.length < 2);
+    restart();
+  }
+
+  function restart() {
+    clearInterval(timer);
+    root.style.setProperty("--hero-interval", INTERVAL + "ms");
+    root.classList.remove("is-timing"); void root.offsetWidth; // restart dot progress animation
+    if (paused || reduceMotion || liveSlides().length < 2) return;
+    root.classList.add("is-timing");
+    timer = setInterval(() => go(index + 1), INTERVAL);
+  }
+
+  function setPaused(p) { paused = p; root.classList.toggle("is-paused", p); restart(); }
+
+  root.addEventListener("click", (e) => {
+    const arrow = e.target.closest(".hero-arrow");
+    if (arrow) go(index + Number(arrow.dataset.dir));
+    const dot = e.target.closest(".hero-dot");
+    if (dot) go(liveDots().indexOf(dot));
+  });
+  root.addEventListener("mouseenter", () => setPaused(true));
+  root.addEventListener("mouseleave", () => setPaused(false));
+  root.addEventListener("focusin", () => setPaused(true));
+  root.addEventListener("focusout", () => setPaused(false));
+  root.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight") go(index + 1);
+    if (e.key === "ArrowLeft") go(index - 1);
+  });
+  document.addEventListener("visibilitychange", () => setPaused(document.hidden));
+
+  let startX = null;
+  root.addEventListener("touchstart", (e) => { startX = e.touches[0].clientX; }, { passive: true });
+  root.addEventListener("touchend", (e) => {
+    if (startX === null) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) > 40) go(index + (dx < 0 ? 1 : -1));
+    startX = null;
+  });
+
+  go(0);
+})();
+</script>
+<script>
+// Scrollable event lists: fade edges + "N more" hint, updated whenever events re-render.
+(function () {
+  document.querySelectorAll(".scroll-list").forEach((list) => {
+    const wrap = document.createElement("div");
+    wrap.className = "scroll-wrap";
+    list.parentNode.insertBefore(wrap, list);
+    wrap.appendChild(list);
+
+    const hint = document.createElement("button");
+    hint.type = "button";
+    hint.className = "scroll-hint";
+    hint.hidden = true;
+    wrap.appendChild(hint);
+    hint.addEventListener("click", () => list.scrollBy({ top: list.clientHeight * 0.8, behavior: "smooth" }));
+
+    function update() {
+      const above = list.scrollTop > 4;
+      const below = list.scrollTop + list.clientHeight < list.scrollHeight - 4;
+      wrap.classList.toggle("fade-top", above);
+      wrap.classList.toggle("fade-bottom", below);
+
+      // count items that sit fully or partly below the visible area
+      const bottom = list.getBoundingClientRect().bottom;
+      const hidden = Array.from(list.children).filter((el) => el.getBoundingClientRect().bottom > bottom + 2).length;
+      hint.hidden = !below || hidden === 0;
+      hint.textContent = `↓ ${hidden} more`;
+    }
+
+    list.addEventListener("scroll", update, { passive: true });
+    new MutationObserver(update).observe(list, { childList: true });
+    new ResizeObserver(update).observe(list);
+    update();
+  });
+})();
+</script>
 </body>
 </html>
- 
