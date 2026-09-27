@@ -121,17 +121,11 @@ function errorHandler(error: unknown, _request: Request, response: Response, _ne
   }
 
   if (error instanceof DatabaseConfigurationError) {
-    // This used to log/return a misleading "auth service" message on every
-    // route, including non-auth ones like /api/parents/:id. Log the real
-    // cause and return an accurate message instead.
     console.error("Database configuration error:", error.message);
     response.status(500).json({ error: "Database is not configured on the server" });
     return;
   }
 
-  // Previously this branch never logged anything, so a real Postgres
-  // connection failure (wrong host, refused connection, SSL mismatch, etc.)
-  // would silently turn into a generic 400 with no trace in the server logs.
   console.error("Unhandled request error:", error);
 
   const message = error instanceof Error ? error.message : "Document processing failed";
@@ -511,7 +505,6 @@ export function createApp() {
     }
   });
 
-  // List all parents
   app.get("/api/parents", async (_request, response, next) => {
     try {
       const result = await getPool().query(
@@ -523,11 +516,9 @@ export function createApp() {
     }
   });
 
-  // Look up parent for a given user (auto-approves pending links and supports fallback)
   app.get("/api/users/:id/parent", async (request, response, next) => {
     try {
       const pool = getPool();
-      // Check parent_relationships
       const relResult = await pool.query<{ parent_id: string; status: string }>(
         `SELECT parent_id, status FROM parent_relationships WHERE user_id = $1 LIMIT 1`,
         [request.params.id]
@@ -554,7 +545,6 @@ export function createApp() {
         }
       }
 
-      // Check if user is themselves a parent
       const parentSelf = await pool.query(
         `SELECT id, full_name AS name, background_notes FROM parents WHERE user_id = $1 LIMIT 1`,
         [request.params.id]
@@ -564,7 +554,6 @@ export function createApp() {
         return;
       }
 
-      // Fallback to the first parent in the database
       const fallbackParent = await pool.query(
         `SELECT id, full_name AS name, background_notes FROM parents LIMIT 1`
       );
@@ -579,7 +568,6 @@ export function createApp() {
     }
   });
 
-  // Fetch a parent's dashboard data (name + background notes) by parent id.
   app.get("/api/parents/:id", async (request, response, next) => {
     try {
       const result = await getPool().query(
@@ -596,7 +584,6 @@ export function createApp() {
     }
   });
 
-  // Update background notes from typed text (JSON body: { backgroundNotes }).
   app.put("/api/parents/:id/background", async (request, response, next) => {
     const parsed = backgroundNotesSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -615,7 +602,6 @@ export function createApp() {
     }
   });
 
-  // Update background notes from an uploaded .txt or .json file (multipart field "file").
   app.put(
     "/api/parents/:id/background/upload",
     backgroundUpload.single("file"),
@@ -638,7 +624,6 @@ export function createApp() {
     }
   );
 
-  // Fetch upcoming schedule events for a parent.
   app.get("/api/parents/:id/schedule", async (request, response, next) => {
     try {
       const result = await getPool().query(
@@ -657,7 +642,6 @@ export function createApp() {
     }
   });
 
-  // Fetch past schedule events for a parent.
   app.get("/api/parents/:id/schedule/past", async (request, response, next) => {
     try {
       const result = await getPool().query(
@@ -676,7 +660,6 @@ export function createApp() {
     }
   });
 
-  // Ask Gemini to distribute each day's 100 engagement points over its unreviewed events.
   app.post("/api/parents/:id/schedule/score", async (request, response, next) => {
     try {
       const scoredEvents = await scoreUnreviewedSchedule(request.params.id);
@@ -686,6 +669,7 @@ export function createApp() {
     }
   });
 
+  app.use(gameRoutes);
   app.use(errorHandler);
   return app;
 }
