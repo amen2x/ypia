@@ -211,4 +211,4 @@ flowchart LR
 
 ## AI Acknowledgment
 - **Inside the product:** Google Gemini reads documents, writes trivia questions, reviews calendar points, and suggests facts to remember. ElevenLabs powers the voice assistant.
-- **While building:** our team used AI coding assistants, including Claude, to help write, debug, and test code and to edit this README. We reviewed and tested what we submitted, and we take responsibility for it.
+- **While building:** our team used AI coding assistants, including Claude, chatgpt, Gemini to help write, debug, and test code and to edit this README. We reviewed and tested what we submitted, and we take responsibility for it.
