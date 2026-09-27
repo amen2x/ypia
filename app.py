@@ -1,7 +1,13 @@
-from urllib.request import Request, urlopen
+from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.error import HTTPError
 from flask import Flask, render_template, request, Response
 
+class PreserveRedirects(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+backend_opener = build_opener(PreserveRedirects())
 app = Flask(__name__)
 
 
@@ -46,7 +52,7 @@ def proxy_api(subpath):
 
     req = Request(backend_url, data=data, headers=headers, method=request.method)
     try:
-        with urlopen(req) as resp:
+        with backend_opener.open(req) as resp:
             return Response(resp.read(), status=resp.status, headers=dict(resp.headers))
     except HTTPError as e:
         return Response(e.read(), status=e.code, headers=dict(e.headers))

@@ -35,7 +35,7 @@ import { scoreUnreviewedSchedule } from "./services/schedulePoints.js";
 import { signupSchema, loginSchema, backgroundNotesSchema } from "./schemas.js";
 import { gameRoutes } from "./gameRoutes.js";
 import { streakRoutes } from "./streakRoutes.js";
-import { calendarRoutes } from "./calendarRoutes.js";
+import { calendarRoutes, isCalendarDate } from "./calendarRoutes.js";
 
 import { getParentBackground, isValidScheduleRange, resolveTimezone, getParentSchedule } from "./services/parentContext.js";
 
@@ -51,6 +51,60 @@ function parseActionText(value: unknown): string | null {
 
 function parseOptionalConversationId(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+const TIME_24H_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export interface ParsedScheduledFields {
+  scheduledDate: string | null;
+  scheduledTime: string | null;
+  scheduledEndTime: string | null;
+}
+
+// Only ElevenLabs' own structured tool-call parameters are trusted here — this
+// never parses/regexes the action's free-text prose. Malformed or logically
+// inconsistent input is rejected outright rather than silently dropped, since
+// (unlike appointmentId) there is no independent source of truth to fall back
+// on: a bad value here would otherwise become an incorrectly-unscheduled or
+// incorrectly-scheduled action with no way to tell it apart from a real one.
+export function parseScheduledFields(body: Record<string, unknown> | undefined): ParsedScheduledFields | string {
+  const rawDate = body?.scheduledDate;
+  const rawTime = body?.scheduledTime;
+  const rawEndTime = body?.scheduledEndTime;
+
+  for (const [field, value] of Object.entries({ scheduledDate: rawDate, scheduledTime: rawTime, scheduledEndTime: rawEndTime })) {
+    if (value !== undefined && value !== null && typeof value !== "string") {
+      return `${field} must be a string or null`;
+    }
+    if (typeof value === "string" && value.trim().length === 0) {
+      return `${field} must not be empty`;
+    }
+  }
+
+  const scheduledDate = typeof rawDate === "string" && rawDate.trim().length > 0 ? rawDate.trim() : null;
+  const scheduledTime = typeof rawTime === "string" && rawTime.trim().length > 0 ? rawTime.trim() : null;
+  const scheduledEndTime = typeof rawEndTime === "string" && rawEndTime.trim().length > 0 ? rawEndTime.trim() : null;
+
+  if (scheduledDate && !isCalendarDate(scheduledDate)) {
+    return "scheduledDate must be a valid YYYY-MM-DD date";
+  }
+  if (scheduledTime && !TIME_24H_PATTERN.test(scheduledTime)) {
+    return "scheduledTime must be a valid 24-hour HH:mm time";
+  }
+  if (scheduledEndTime && !TIME_24H_PATTERN.test(scheduledEndTime)) {
+    return "scheduledEndTime must be a valid 24-hour HH:mm time";
+  }
+  if (scheduledTime && !scheduledDate) {
+    return "scheduledTime requires scheduledDate";
+  }
+  if (scheduledEndTime && !scheduledTime) {
+    return "scheduledEndTime requires scheduledTime";
+  }
+  if (scheduledEndTime && scheduledTime && scheduledEndTime < scheduledTime) {
+    return "scheduledEndTime cannot be earlier than scheduledTime";
+  }
+
+  return { scheduledDate, scheduledTime, scheduledEndTime };
 }
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -437,6 +491,10 @@ export function createApp() {
     const conversationId = parseOptionalConversationId(
       (request.body as Record<string, unknown> | undefined)?.conversationId
     );
+    const appointmentId = parseOptionalConversationId(
+      (request.body as Record<string, unknown> | undefined)?.appointmentId
+    );
+    const scheduledFields = parseScheduledFields(request.body as Record<string, unknown> | undefined);
 
     if (!userId) {
       response.status(400).json({ error: "userId is required" });
@@ -444,6 +502,10 @@ export function createApp() {
     }
     if (!text) {
       response.status(400).json({ error: "text is required and must be 500 characters or fewer" });
+      return;
+    }
+    if (typeof scheduledFields === "string") {
+      response.status(400).json({ error: scheduledFields });
       return;
     }
 
@@ -459,6 +521,8 @@ export function createApp() {
         createdByUserId: userId,
         text,
         conversationId,
+        appointmentId,
+        ...scheduledFields,
       });
 
       response.status(201).json({ status: "created", action });

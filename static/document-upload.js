@@ -73,7 +73,7 @@ if (uploadButton instanceof HTMLButtonElement) {
     formData.append("document", selectedFile);
 
     try {
-      const response = await fetch("http://localhost:3000/api/documents", {
+      const response = await fetch("/api/documents", {
         method: "POST",
         body: formData
       });

@@ -153,6 +153,21 @@ button {
     font-weight: 600;
 }
 
+.logout-link {
+    background: none;
+    border: none;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+    cursor: pointer;
+}
+
+.logout-link:hover {
+    color: var(--ink);
+    text-decoration: underline;
+}
+
 .upload-btn {
     justify-self: end;
     display: inline-flex;

@@ -11,7 +11,7 @@ export function createConversationSync({
   async function run(userId, conversationId) {
     try {
       for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
-        const response = await fetchImpl("http://localhost:3000/api/parent/voice-conversations/sync", {
+        const response = await fetchImpl("/api/parent/voice-conversations/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId, conversationId }),

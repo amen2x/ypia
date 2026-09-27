@@ -34,7 +34,6 @@
       <h1 class="greeting" id="greeting">Hi</h1>
       <p class="prompt">What can I help you with today?</p>
       <p id="streakDisplay" class="streak-badge" hidden>🔥 <span id="streakCount">0</span> week streak</p>
-</div>
     </div>
 
     <div class="voice-hero">
@@ -87,7 +86,7 @@
     async function loadStreak() {
       if (!user?.id) return;
       try {
-        const response = await fetch(`http://localhost:3000/api/parent/streak?userId=${encodeURIComponent(user.id)}`);
+        const response = await fetch(`/api/parent/streak?userId=${encodeURIComponent(user.id)}`);
         if (!response.ok) return;
         const data = await response.json();
         const streakDisplay = document.getElementById("streakDisplay");
@@ -202,7 +201,7 @@
       formData.append("userId", user.id);
 
       try {
-        const response = await fetch("http://localhost:3000/api/documents", {
+        const response = await fetch("/api/documents", {
           method: "POST",
           body: formData,
         });
@@ -464,7 +463,7 @@
       const documentId = draft.documentId;
 
       try {
-        const response = await fetch(`http://localhost:3000/api/documents/${encodeURIComponent(documentId)}/confirm`, {
+        const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/confirm`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: user.id, editedData }),
@@ -579,7 +578,7 @@
 
     async function registerConversation(userId, conversationId) {
       try {
-        await fetch("http://localhost:3000/api/parent/voice-conversations/register", {
+        await fetch("/api/parent/voice-conversations/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId, conversationId }),
@@ -622,7 +621,7 @@
       }
 
       try {
-        const response = await fetch("http://localhost:3000/api/elevenlabs/signed-url");
+        const response = await fetch("/api/elevenlabs/signed-url");
         if (!response.ok) throw new Error("signed-url request failed");
         const { signedUrl } = await response.json();
 
@@ -640,7 +639,7 @@
 
               try {
                 const apiResponse = await fetch(
-                  `http://localhost:3000/api/parent/next-appointment?userId=${encodeURIComponent(user.id)}`
+                  `/api/parent/next-appointment?userId=${encodeURIComponent(user.id)}`
                 );
                 if (!apiResponse.ok) {
                   return { status: "error", message: "Could not retrieve appointment information right now." };
@@ -663,7 +662,7 @@
 
               try {
                 const apiResponse = await fetch(
-                  `http://localhost:3000/api/parent/current-medications?userId=${encodeURIComponent(user.id)}`
+                  `/api/parent/current-medications?userId=${encodeURIComponent(user.id)}`
                 );
                 if (!apiResponse.ok) {
                   return { status: "error", message: "Could not retrieve medication information right now." };
@@ -686,7 +685,7 @@
 
               try {
                 const apiResponse = await fetch(
-                  `http://localhost:3000/api/parent/latest-changes?userId=${encodeURIComponent(user.id)}`
+                  `/api/parent/latest-changes?userId=${encodeURIComponent(user.id)}`
                 );
                 if (!apiResponse.ok) {
                   return { status: "error", message: "Could not retrieve recent changes right now." };
@@ -715,7 +714,7 @@
 
               try {
                 const apiResponse = await fetch(
-                  `http://localhost:3000/api/parent/background?userId=${encodeURIComponent(user.id)}`
+                  `/api/parent/background?userId=${encodeURIComponent(user.id)}`
                 );
                 if (!apiResponse.ok) {
                   return { status: "error", message: "Could not retrieve background information right now." };
@@ -751,7 +750,7 @@
 
               try {
                 const apiResponse = await fetch(
-                  `http://localhost:3000/api/parent/schedule?userId=${encodeURIComponent(user.id)}&range=${encodeURIComponent(range)}&timezone=${encodeURIComponent(timezone)}`
+                  `/api/parent/schedule?userId=${encodeURIComponent(user.id)}&range=${encodeURIComponent(range)}&timezone=${encodeURIComponent(timezone)}`
                 );
                 if (!apiResponse.ok) {
                   return { status: "error", message: "Could not retrieve schedule information right now." };
@@ -767,7 +766,7 @@
                 return { status: "error", message: "Could not retrieve schedule information right now." };
               }
             },
-            create_caregiver_action: async ({ text } = {}) => {
+            create_caregiver_action: async ({ text, appointmentId, scheduledDate, scheduledTime, scheduledEndTime } = {}) => {
               if (!user?.id) {
                 return { status: "error", message: "No logged-in parent found." };
               }
@@ -776,13 +775,17 @@
               }
 
               try {
-                const apiResponse = await fetch("http://localhost:3000/api/parent/caregiver-actions", {
+                const apiResponse = await fetch("/api/parent/caregiver-actions", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     userId: user.id,
                     text: text.trim(),
                     conversationId: activeConversationId,
+                    appointmentId: typeof appointmentId === "string" ? appointmentId : null,
+                    scheduledDate: scheduledDate ?? null,
+                    scheduledTime: scheduledTime ?? null,
+                    scheduledEndTime: scheduledEndTime ?? null,
                   }),
                 });
 

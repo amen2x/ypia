@@ -34,6 +34,7 @@
         <img src="/static/images/man.jpeg" alt="Profile picture" class="profile-image">
         <span class="welcome-text">Welcome back, <span id="logged-in-user">User</span></span>
       </div>
+      <button type="button" id="logoutButton" class="logout-link">Logout</button>
       <button class="upload-btn" id="openUploadModal">⬆ Upload</button>
     </div>
   </nav>
@@ -246,6 +247,7 @@
             </div>
 
             <p id="backgroundSaveStatus" class="save-status" hidden></p>
+          </div>
         </details>
       </section>
 
@@ -423,7 +425,7 @@
 
  
 <script>
-const API_BASE = window.location.port === "3000" ? "" : "http://localhost:3000";
+const API_BASE = ""; // Flask proxies /api/* to the backend, so same-origin always works.
 
 async function getOrFetchParentId(user) {
   // Always refresh the link for the signed-in account. A cached parentId can
@@ -671,6 +673,11 @@ function toggleEditNotes(showEdit) {
     if (notesActions) notesActions.style.display = "flex";
   }
 }
+
+document.getElementById("logoutButton").addEventListener("click", () => {
+  localStorage.removeItem("ypia_user");
+  window.location.href = "/login";
+});
 
 async function loadParentData() {
   const user = JSON.parse(localStorage.getItem("ypia_user") || "{}");
@@ -1249,7 +1256,7 @@ document.addEventListener("click", hideAllDayInfo);
 <script>
 (function () {
     const list = document.getElementById('actionList');
-    const CAREGIVER_API_BASE = window.location.port === "3000" ? "" : "http://localhost:3000";
+    const CAREGIVER_API_BASE = ""; // Flask proxies /api/* to the backend, so same-origin always works.
     const caregiverUser = JSON.parse(localStorage.getItem("ypia_user") || "null");
     let totalItemCount = list.children.length; // counts whatever's already in the list on load
 let completedItemCount = 0;
@@ -1274,7 +1281,7 @@ updateCompletionWheel();
     return "Due " + dt.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-function addActionItem(id, text, urgency = "medium", dateStr) {
+function addActionItem(id, text, urgency = "medium", dateStr, timeStr, endTimeStr) {
     if (document.getElementById(id)) return; // already on the list, don't duplicate
 
     const item = document.createElement("div");
@@ -1282,6 +1289,8 @@ function addActionItem(id, text, urgency = "medium", dateStr) {
     item.draggable = true;
     item.dataset.urgency = urgency;
     item.dataset.date = dateStr;
+    if (timeStr) item.dataset.time = timeStr;
+    if (endTimeStr) item.dataset.endTime = endTimeStr;
     item.innerHTML = `
         <span class="drag-handle">⋮⋮</span>
         <input type="checkbox" id="${id}">
@@ -1404,7 +1413,16 @@ function completeItem(item) {
         if (!e.target.matches('.cal-btn')) return;
         const item = e.target.closest('.action-item');
         const text = item.querySelector('label').textContent;
-        const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(text);
+        const date = item.dataset.date;
+        if (!date || date === "undefined") {
+            alert("Please choose a date before adding this item to Google Calendar.");
+            return;
+        }
+        // Items with a date but no explicit time are exported as all-day events.
+        const params = new URLSearchParams({ title: text, date });
+        if (item.dataset.time) params.set("time", item.dataset.time);
+        if (item.dataset.endTime) params.set("endTime", item.dataset.endTime);
+        const url = `${CAREGIVER_API_BASE}/api/calendar/template?${params}`;
         window.open(url, '_blank');
     });
  
@@ -1442,7 +1460,11 @@ function completeItem(item) {
                 .forEach((action) => {
                     const domId = `db-action-${action.id}`;
                     if (document.getElementById(domId)) return;
-                    addActionItem(domId, buildCaregiverActionLabel(action), "medium", undefined);
+                    // date/time/endTime come straight from the stored appointment row
+                    // when linked, otherwise from the action's own explicitly-supplied
+                    // scheduled_* fields (see caregiverActions.ts) — never derived from
+                    // action.text, so the calendar button reflects real data only.
+                    addActionItem(domId, buildCaregiverActionLabel(action), "medium", action.date || undefined, action.time || undefined, action.endTime || undefined);
                     const item = document.getElementById(domId);
                     if (item) item.dataset.actionId = action.id;
                 });
@@ -1658,12 +1680,9 @@ function addNewItem() {
 //     (or /static/images/) — .jpg, .jpeg, .png and .webp are all tried automatically.
 //  focus = where the faces are ("x% y%"); lower y keeps more of the top of the photo.
 const HERO_PHOTOS = [
-  { src: "/static/images/header/elders1",  alt: "Older couple smiling together", focus: "50% 22%" },
-  { src: "/static/images/header/elders2",  alt: "Grandmother laughing with family", focus: "50% 22%" },
-  { src: "/static/images/header/elders3",  alt: "Older man gardening outdoors",   focus: "50% 22%" },
-  { src: "/static/images/elders",          alt: "Older adults together",           focus: "50% 22%" },
-  { src: "/static/images/elders2",         alt: "Grandmother laughing with family", focus: "50% 22%" },
-  { src: "/static/images/elders3",         alt: "Older man gardening outdoors",   focus: "50% 22%" }
+  { src: "/static/images/elders.jpeg",     alt: "Older adults together",           focus: "50% 22%" },
+  { src: "/static/images/multielders.jpg", alt: "Grandmother laughing with family", focus: "50% 22%" },
+  { src: "/static/images/oldppl.jpg",      alt: "Older friends laughing together outdoors", focus: "50% 22%" }
 ];
 const HERO_EXTENSIONS = [".jpeg", ".jpg", ".png", ".webp"];
 

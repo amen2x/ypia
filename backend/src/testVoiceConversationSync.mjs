@@ -45,7 +45,7 @@ for (const [statuses, expectedDelays] of [
     assert.equal(harness.requests.length, statuses.length);
     assert.deepEqual(harness.delays, expectedDelays);
     for (const request of harness.requests) {
-      assert.equal(request.url, "http://localhost:3000/api/parent/voice-conversations/sync");
+      assert.equal(request.url, "/api/parent/voice-conversations/sync");
       assert.equal(request.method, "POST");
       assert.deepEqual(JSON.parse(request.body), {
         userId: "synthetic-parent", conversationId: "synthetic-conversation",

@@ -1,6 +1,7 @@
 import { getPool } from "../db.js";
 
 export interface NextAppointment {
+  id: string;
   title: string | null;
   date: string;
   time: string;
@@ -34,13 +35,14 @@ export async function getApprovedParentIdsForCaregiver(userId: string): Promise<
 export async function getNextAppointment(parentId: string): Promise<NextAppointment | null> {
   const pool = getPool();
   const result = await pool.query<{
+    id: string;
     title: string | null;
     starts_at: Date;
     timezone: string | null;
     location: string | null;
     clinic: string | null;
   }>(
-    `SELECT title, starts_at, timezone, location, clinic
+    `SELECT id, title, starts_at, timezone, location, clinic
      FROM appointments
      WHERE parent_id = $1 AND starts_at >= now()
      ORDER BY starts_at ASC
@@ -57,6 +59,7 @@ export async function getNextAppointment(parentId: string): Promise<NextAppointm
   const startsAt = new Date(row.starts_at);
 
   return {
+    id: row.id,
     title: row.title,
     date: startsAt.toLocaleDateString("en-US", { timeZone, year: "numeric", month: "long", day: "numeric" }),
     time: startsAt.toLocaleTimeString("en-US", { timeZone, hour: "numeric", minute: "2-digit" }),

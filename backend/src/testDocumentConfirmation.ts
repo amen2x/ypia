@@ -103,6 +103,12 @@ async function main() {
     }
   });
 
+  if (process.argv.includes("--offline")) {
+    if (failures > 0) process.exitCode = 1;
+    console.log("Offline checks complete; database integration checks skipped.");
+    return;
+  }
+
   const pool = getPool();
 
   const susanUser = await pool.query<{ id: string }>("SELECT id FROM users WHERE email = 'susan.demo@ypia.test'");

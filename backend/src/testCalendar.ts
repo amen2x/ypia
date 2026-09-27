@@ -22,10 +22,25 @@ test("explicit appointment time uses Chicago wall time without changing the date
   assert.equal(url.searchParams.get("ctz"), "America/Chicago");
 });
 
-test("an edited October 15 date wins and an absent end time does not invent a duration", () => {
-  const url = calendarUrl({ date: "2026-10-15", time: "10:30" });
-  assert.equal(url.searchParams.get("dates"), "20261015T103000/20261015T103000");
+test("an absent end time uses a 30-minute export-only placeholder", () => {
+  const event = Object.freeze({ date: "2026-10-15", time: "10:30" });
+  const url = calendarUrl(event);
+  assert.equal(url.searchParams.get("dates"), "20261015T103000/20261015T110000");
+  assert.deepEqual(event, { date: "2026-10-15", time: "10:30" });
 });
+
+for (const [date, expected] of [
+  ["2026-10-14", "20261014T234500/20261015T001500"],
+  ["2026-04-30", "20260430T234500/20260501T001500"],
+  ["2026-12-31", "20261231T234500/20270101T001500"],
+  ["2028-02-28", "20280228T234500/20280229T001500"],
+]) {
+  test(`30-minute export from ${date} rolls over midnight correctly`, () => {
+    const url = calendarUrl({ date, time: "11:45 PM" });
+    assert.equal(url.searchParams.get("dates"), expected);
+    assert.equal(url.searchParams.get("ctz"), "America/Chicago");
+  });
+}
 
 test("12-hour midnight and noon normalize correctly", () => {
   assert.equal(calendarUrl({ date: "2026-10-14", time: "12:00 AM", endTime: "12:00 PM" })
@@ -60,6 +75,7 @@ const invalidInputs: Array<[string, Record<string, unknown>]> = [
   ["invalid month", { date: "2026-13-01" }],
   ["invalid year zero", { date: "0000-01-01" }],
   ["out-of-range all-day end", { date: "9999-12-31" }],
+  ["out-of-range placeholder end", { date: "9999-12-31", time: "23:45" }],
   ["hour rollover", { date: "2026-10-14", time: "24:00" }],
   ["minute rollover", { date: "2026-10-14", time: "10:60" }],
   ["invalid 12-hour time", { date: "2026-10-14", time: "13:30 PM" }],
@@ -92,7 +108,7 @@ test("isolated calendar route redirects valid requests and rejects invalid ones"
     assert.equal(valid.status, 302);
     const location = valid.headers.get("location");
     assert.ok(location);
-    assert.equal(new URL(location).searchParams.get("dates"), "20261014T103000/20261014T103000");
+    assert.equal(new URL(location).searchParams.get("dates"), "20261014T103000/20261014T110000");
     await valid.text();
     for (const query of [
       new URLSearchParams({ title }),

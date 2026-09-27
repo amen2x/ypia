@@ -2,7 +2,7 @@
 // Loaded with a plain <script> tag, so everything lives on window.Games.
 
 (function () {
-  const API = "http://localhost:3000";
+  const API = "";
 
   // The logged-in user, saved by the login page. Games are for parents only.
   function getPlayer() {

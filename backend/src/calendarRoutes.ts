@@ -3,7 +3,7 @@ import { z } from "zod";
 
 const SCHEDULE_TIMEZONE = "America/Chicago";
 
-function isCalendarDate(value: string): boolean {
+export function isCalendarDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000")) return false;
   const date = new Date(`${value}T00:00:00.000Z`);
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
@@ -27,8 +27,8 @@ const calendarExportSchema = z.object({
   if (event.endTime && (!event.time || event.endTime < event.time)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["endTime"], message: "End time requires a start time and cannot be earlier" });
   }
-  if (!event.time && event.date === "9999-12-31") {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["date"], message: "All-day end date is outside the supported range" });
+  if (event.date === "9999-12-31" && (!event.time || (!event.endTime && event.time >= "23:30"))) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["date"], message: "Calendar end date is outside the supported range" });
   }
 });
 
@@ -39,7 +39,15 @@ export function buildCalendarUrl(input: unknown): string {
   if (event.time) {
     // Keep explicit wall-clock values in the schedule's existing timezone.
     const start = `${day}T${event.time.replace(":", "")}00`;
-    const end = `${day}T${(event.endTime ?? event.time).replace(":", "")}00`;
+    let end: string;
+    if (event.endTime) {
+      end = `${day}T${event.endTime.replace(":", "")}00`;
+    } else {
+      // A 30-minute export-only placeholder, never persisted as care data.
+      const exportEnd = new Date(`${event.date}T${event.time}:00.000Z`);
+      exportEnd.setUTCMinutes(exportEnd.getUTCMinutes() + 30);
+      end = exportEnd.toISOString().slice(0, 19).replace(/[-:]/g, "");
+    }
     dates = `${start}/${end}`;
   } else {
     // Google all-day ranges have an exclusive end date, with no clock time.

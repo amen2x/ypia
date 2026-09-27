@@ -1,7 +1,7 @@
 // Weekly check-in streak on the family member's page (index.html).
 // Check on your parent at least once a week to keep the streak going.
 (function () {
-  const API = window.location.port === "3000" ? "" : "http://localhost:3000";
+  const API = "";
   const box = document.getElementById("streakBox");
   if (!box) return;
 

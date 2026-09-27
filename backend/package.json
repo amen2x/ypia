@@ -11,10 +11,12 @@
     "test-voice-serialization": "tsx src/testVoiceConversationsSerialization.ts",
     "test-voice-sync": "node src/testVoiceConversationSync.mjs",
     "test-calendar": "tsx src/testCalendar.ts",
+    "test-appointment-calendar-chain": "tsx src/testAppointmentCalendarChain.ts",
     "test-caregiver-documents-auth": "node --env-file=.env --import tsx src/testCaregiverDocumentsAuthorization.ts",
     "test-parent-context": "node --env-file=.env --import tsx src/testParentContext.ts",
     "test-conversation-memory": "node --env-file=.env --import tsx src/testConversationMemory.ts",
     "test-document-confirmation": "node --env-file=.env --import tsx src/testDocumentConfirmation.ts",
+    "test-caregiver-actions": "node --env-file=.env --import tsx src/testCaregiverActions.ts",
     "start": "node --watch --env-file-if-exists=../.env --env-file=.env --import tsx src/server.ts"
   },
   "dependencies": {

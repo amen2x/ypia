@@ -9,7 +9,7 @@ document.getElementById("signupParentForm").addEventListener("submit", async (e)
   };
 
   try {
-    const res = await fetch("http://localhost:3000/api/signup", {
+    const res = await fetch("/api/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

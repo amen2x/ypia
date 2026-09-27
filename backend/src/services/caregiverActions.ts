@@ -1,5 +1,7 @@
 import { getPool } from "../db.js";
 
+const FALLBACK_TIMEZONE = "America/Chicago";
+
 export interface CaregiverAction {
   id: string;
   text: string;
@@ -9,6 +11,9 @@ export interface CaregiverAction {
   completedAt: string | null;
   parentName: string;
   conversationId: string | null;
+  date: string | null;
+  time: string | null;
+  endTime: string | null;
 }
 
 export interface CreateCaregiverActionInput {
@@ -16,17 +21,52 @@ export interface CreateCaregiverActionInput {
   createdByUserId: string;
   text: string;
   conversationId: string | null;
+  appointmentId: string | null;
+  scheduledDate: string | null;
+  scheduledTime: string | null;
+  scheduledEndTime: string | null;
+}
+
+// The agent may supply an appointmentId, but it is never trusted merely because
+// ElevenLabs sent it — it must resolve to a real appointment owned by this same
+// parent, or the action is stored without a link (never invented, never rejected
+// wholesale, since a bad/missing link shouldn't block relaying the request itself).
+async function resolveOwnedAppointmentId(
+  parentId: string,
+  appointmentId: string | null
+): Promise<string | null> {
+  if (!appointmentId) return null;
+
+  const pool = getPool();
+  const result = await pool.query<{ id: string }>(
+    "SELECT id FROM appointments WHERE id = $1 AND parent_id = $2",
+    [appointmentId, parentId]
+  );
+  return result.rows[0]?.id ?? null;
 }
 
 export async function createCaregiverAction(
   input: CreateCaregiverActionInput
 ): Promise<{ id: string; text: string; status: string }> {
   const pool = getPool();
+  const verifiedAppointmentId = await resolveOwnedAppointmentId(input.parentId, input.appointmentId);
+
   const result = await pool.query<{ id: string; action_text: string; status: string }>(
-    `INSERT INTO caregiver_actions (parent_id, created_by_user_id, action_text, elevenlabs_conversation_id)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO caregiver_actions
+       (parent_id, created_by_user_id, action_text, elevenlabs_conversation_id, appointment_id,
+        scheduled_date, scheduled_time, scheduled_end_time)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING id, action_text, status`,
-    [input.parentId, input.createdByUserId, input.text, input.conversationId]
+    [
+      input.parentId,
+      input.createdByUserId,
+      input.text,
+      input.conversationId,
+      verifiedAppointmentId,
+      input.scheduledDate,
+      input.scheduledTime,
+      input.scheduledEndTime,
+    ]
   );
 
   const row = result.rows[0];
@@ -48,26 +88,76 @@ export async function listCaregiverActions(parentIds: string[]): Promise<Caregiv
     completed_at: Date | null;
     parent_name: string;
     elevenlabs_conversation_id: string | null;
+    appt_starts_at: Date | null;
+    appt_timezone: string | null;
+    scheduled_date: Date | null;
+    scheduled_time: string | null;
+    scheduled_end_time: string | null;
   }>(
     `SELECT ca.id, ca.action_text, ca.status, ca.source, ca.created_at, ca.completed_at,
-            ca.elevenlabs_conversation_id, p.full_name AS parent_name
+            ca.elevenlabs_conversation_id, p.full_name AS parent_name,
+            a.starts_at AS appt_starts_at, a.timezone AS appt_timezone,
+            ca.scheduled_date, ca.scheduled_time, ca.scheduled_end_time
      FROM caregiver_actions ca
      JOIN parents p ON p.id = ca.parent_id
+     LEFT JOIN appointments a ON a.id = ca.appointment_id
      WHERE ca.parent_id = ANY($1::text[])
      ORDER BY (ca.status = 'open') DESC, ca.created_at DESC`,
     [parentIds]
   );
 
-  return result.rows.map((row) => ({
-    id: row.id,
-    text: row.action_text,
-    status: row.status,
-    source: row.source,
-    createdAt: row.created_at.toISOString(),
-    completedAt: row.completed_at ? row.completed_at.toISOString() : null,
-    parentName: row.parent_name,
-    conversationId: row.elevenlabs_conversation_id,
-  }));
+  return result.rows.map((row) => {
+    // A linked appointment is always authoritative when present — its own stored
+    // date/time wins even if a (possibly stale/conflicting) scheduled_* value is
+    // also stored. Neither path ever reads the action's free-text prose.
+    const timeZone = row.appt_timezone || FALLBACK_TIMEZONE;
+    const startsAt = row.appt_starts_at ? new Date(row.appt_starts_at) : null;
+
+    if (startsAt) {
+      const localTime = startsAt.toLocaleTimeString("en-US", { timeZone, hour: "numeric", minute: "2-digit" });
+      // Midnight-local has no reliable way to be distinguished from a genuine
+      // date-only appointment in the current schema, so treat it as date-only
+      // rather than exposing a possibly-invented time.
+      const hasExplicitTime = localTime !== "12:00 AM";
+      return {
+        id: row.id,
+        text: row.action_text,
+        status: row.status,
+        source: row.source,
+        createdAt: row.created_at.toISOString(),
+        completedAt: row.completed_at ? row.completed_at.toISOString() : null,
+        parentName: row.parent_name,
+        conversationId: row.elevenlabs_conversation_id,
+        // en-CA reliably formats as YYYY-MM-DD, matching the ISO date the frontend's
+        // dataset.date/calendar-export route already expect everywhere else.
+        date: startsAt.toLocaleDateString("en-CA", { timeZone }),
+        time: hasExplicitTime ? localTime : null,
+        endTime: null,
+      };
+    }
+
+    // No linked appointment: fall back to the explicitly-supplied general
+    // scheduling fields, or no date at all if none were ever given.
+    // pg parses DATE values at server-local midnight. Read local components so
+    // a positive UTC offset cannot shift the stored calendar date backward.
+    const scheduledDate = row.scheduled_date
+      ? `${row.scheduled_date.getFullYear()}-${String(row.scheduled_date.getMonth() + 1).padStart(2, "0")}-${String(row.scheduled_date.getDate()).padStart(2, "0")}`
+      : null;
+
+    return {
+      id: row.id,
+      text: row.action_text,
+      status: row.status,
+      source: row.source,
+      createdAt: row.created_at.toISOString(),
+      completedAt: row.completed_at ? row.completed_at.toISOString() : null,
+      parentName: row.parent_name,
+      conversationId: row.elevenlabs_conversation_id,
+      date: scheduledDate,
+      time: scheduledDate && row.scheduled_time ? row.scheduled_time.slice(0, 5) : null,
+      endTime: scheduledDate && row.scheduled_time && row.scheduled_end_time ? row.scheduled_end_time.slice(0, 5) : null,
+    };
+  });
 }
 
 export interface UpdateActionStatusInput {
