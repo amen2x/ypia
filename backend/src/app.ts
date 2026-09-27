@@ -39,6 +39,7 @@ import { DatabaseConfigurationError, getPool } from "./db.js";
 import { scoreUnreviewedSchedule } from "./services/schedulePoints.js";
 import { signupSchema, loginSchema, backgroundNotesSchema } from "./schemas.js";
 import { gameRoutes } from "./gameRoutes.js";
+import { streakRoutes } from "./streakRoutes.js";
 import { calendarRoutes } from "./calendarRoutes.js";
 
 const MAX_ACTION_TEXT_LENGTH = 500;
@@ -784,6 +785,7 @@ export function createApp() {
   });
 
   app.use(gameRoutes);
+  app.use(streakRoutes);
   app.use(errorHandler);
   return app;
 }

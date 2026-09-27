@@ -86,6 +86,22 @@
       <!-- ============ Dashboard ============ -->
       <section class="view" id="view-dashboard" data-view="dashboard">
     <div class="grid">
+    <div class="box w-12 h-1" id="streakBox">
+    <h2 class="tag">Weekly check-in streak</h2>
+    <style>
+      .streak-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.5rem; }
+      .streak-count { font-family: Manrope, Inter, sans-serif; font-size: 2.4rem; font-weight: 800; line-height: 1; color: var(--ink); white-space: nowrap; }
+      .streak-count small { font-size: 0.9rem; font-weight: 600; color: var(--ink-soft); }
+      #streakMessage { flex: 1 1 16rem; font-size: 1rem; }
+      .streak-btn { font: inherit; font-weight: 700; padding: 0.7rem 1.4rem; border-radius: 999px; border: 2px solid #000; background: var(--accent); color: #fff; cursor: pointer; }
+      .streak-btn:disabled { background: var(--accent-soft); color: var(--accent); cursor: default; }
+    </style>
+    <div class="streak-row">
+      <div class="streak-count"><span id="streakCount">0</span> <small id="streakLabel">weeks in a row</small></div>
+      <p id="streakMessage">Loading your streak...</p>
+      <button type="button" id="streakButton" class="streak-btn" hidden>I checked on them</button>
+    </div>
+  </div>
 
       <!-- Updates / schedule -->
       <div class="box box--sage w-6 h-3">
@@ -1504,6 +1520,8 @@ function addNewItem() {
 </script>
  
 <script src="/static/document-upload.js" defer></script>
+
+<script src="/static/streak.js"></script>
  
  
   
