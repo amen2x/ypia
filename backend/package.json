@@ -9,6 +9,7 @@
     "test-reconcile": "tsx src/testReconcileCareState.ts",
     "test-care-update": "tsx src/testProcessCareUpdate.ts",
     "test-voice-serialization": "tsx src/testVoiceConversationsSerialization.ts",
+    "test-caregiver-documents-auth": "node --env-file=.env --import tsx src/testCaregiverDocumentsAuthorization.ts",
     "start": "node --watch --env-file-if-exists=../.env --env-file=.env --import tsx src/server.ts"
   },
   "dependencies": {

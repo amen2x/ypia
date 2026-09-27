@@ -155,10 +155,26 @@
   <div class="box w-8 h-2">
     <h2 class="tag">fact check that boomer message</h2>
     <p>mom sends a questionable link or post past it into here to giver her a kind but factual response</p>
- 
+
+  </div>
+
+  <div class="box w-8 h-2" id="sharedDocumentsBox">
+    <h2 class="tag">Shared documents</h2>
+    <p style="font-size: 0.8rem; color: var(--ink-soft); margin: 0 0 0.5rem;">Medical documents <span class="parent-name-echo">Susan</span> has shared from Y.P.I.A.</p>
+    <div id="sharedDocumentsList" style="display: flex; flex-direction: column; gap: 0.5rem;">
+      <p style="color: var(--ink-soft); font-size: 0.85rem;">No shared documents yet.</p>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="documentDetailsModal" hidden>
+    <div class="modal-box">
+      <button class="modal-close" id="documentDetailsModalClose" aria-label="Close">✕</button>
+      <h2 id="documentDetailsModalTitle">Document details</h2>
+      <div id="documentDetailsModalBody"></div>
+    </div>
   </div>
   </div>
-  
+
    <aside class="action-items">
         <div class="action-items-header">
         <h2>Action items/check list?</h2>
@@ -1228,10 +1244,142 @@ function completeItem(item) {
         }
     }
 
+    // Shared documents Susan has uploaded and Y.P.I.A extracted. Rendered from
+    // documents.extracted_data only — never the original file, which Y.P.I.A
+    // does not durably store.
+    const renderedDocumentIds = new Set();
+
+    function escapeHtml(value) {
+        const div = document.createElement("div");
+        div.textContent = value == null ? "" : String(value);
+        return div.innerHTML;
+    }
+
+    function formatDocumentType(type) {
+        if (!type) return "Document";
+        return type
+            .split("_")
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" ");
+    }
+
+    function formatUploadedAt(iso) {
+        const date = new Date(iso);
+        if (Number.isNaN(date.getTime())) return "";
+        return `Added ${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })} at ${date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+    }
+
+    function renderDocumentDetails(doc) {
+        const data = doc.extractedData || {};
+        const sections = [];
+
+        if (data.documentType) {
+            sections.push(`<p><strong>Document type:</strong> ${escapeHtml(formatDocumentType(data.documentType))}</p>`);
+        }
+
+        if (Array.isArray(data.medications) && data.medications.length > 0) {
+            const items = data.medications.map((med) => {
+                const parts = [escapeHtml(med.name)];
+                if (med.dose) parts.push(escapeHtml(med.dose));
+                if (med.frequency) parts.push(escapeHtml(med.frequency));
+                const status = med.status ? ` <span style="color:var(--ink-soft);">(${escapeHtml(med.status)})</span>` : "";
+                return `<li>${parts.join(" — ")}${status}</li>`;
+            }).join("");
+            sections.push(`<h3 style="margin-bottom:0.25rem;">Medications</h3><ul style="margin-top:0;">${items}</ul>`);
+        }
+
+        if (Array.isArray(data.appointments) && data.appointments.length > 0) {
+            const items = data.appointments.map((appt) => {
+                const parts = [appt.type, appt.provider, appt.date, appt.time, appt.location]
+                    .filter(Boolean)
+                    .map(escapeHtml);
+                return `<li>${parts.join(" — ")}</li>`;
+            }).join("");
+            sections.push(`<h3 style="margin-bottom:0.25rem;">Appointments</h3><ul style="margin-top:0;">${items}</ul>`);
+        }
+
+        if (Array.isArray(data.followUps) && data.followUps.length > 0) {
+            const items = data.followUps.map((f) => {
+                const timeframe = f.timeframe ? ` (${escapeHtml(f.timeframe)})` : "";
+                return `<li>${escapeHtml(f.description)}${timeframe}</li>`;
+            }).join("");
+            sections.push(`<h3 style="margin-bottom:0.25rem;">Follow-ups</h3><ul style="margin-top:0;">${items}</ul>`);
+        }
+
+        if (Array.isArray(data.instructions) && data.instructions.length > 0) {
+            const items = data.instructions.map((i) => `<li>${escapeHtml(i)}</li>`).join("");
+            sections.push(`<h3 style="margin-bottom:0.25rem;">Instructions</h3><ul style="margin-top:0;">${items}</ul>`);
+        }
+
+        return sections.length > 0
+            ? sections.join("")
+            : "<p style=\"color:var(--ink-soft);\">No structured details were extracted from this document.</p>";
+    }
+
+    function openDocumentDetailsModal(doc) {
+        const modal = document.getElementById("documentDetailsModal");
+        const title = document.getElementById("documentDetailsModalTitle");
+        const body = document.getElementById("documentDetailsModalBody");
+        if (!modal || !title || !body) return;
+
+        title.textContent = doc.documentName || "Document details";
+        body.innerHTML = renderDocumentDetails(doc);
+        modal.hidden = false;
+    }
+
+    document.getElementById("documentDetailsModalClose")?.addEventListener("click", () => {
+        const modal = document.getElementById("documentDetailsModal");
+        if (modal) modal.hidden = true;
+    });
+    document.getElementById("documentDetailsModal")?.addEventListener("click", (e) => {
+        if (e.target.id === "documentDetailsModal") e.target.hidden = true;
+    });
+
+    async function loadSharedDocuments() {
+        if (!caregiverUser?.id) return;
+        const container = document.getElementById("sharedDocumentsList");
+        if (!container) return;
+
+        try {
+            const res = await fetch(`${CAREGIVER_API_BASE}/api/caregiver/documents?userId=${encodeURIComponent(caregiverUser.id)}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            const documents = Array.isArray(data.documents) ? data.documents : [];
+            if (documents.length === 0) return;
+
+            const newOnes = documents.filter((doc) => !renderedDocumentIds.has(doc.id));
+            if (newOnes.length === 0) return;
+
+            if (renderedDocumentIds.size === 0) container.innerHTML = "";
+
+            // documents/newOnes are newest-first; reverse before prepending so the
+            // newest of this batch ends up on top, preserving newest-first order.
+            newOnes.slice().reverse().forEach((doc) => {
+                renderedDocumentIds.add(doc.id);
+                const item = document.createElement("div");
+                item.className = "shared-document-item";
+                item.style.cssText = "border:1px solid var(--line); border-radius:8px; padding:0.6rem 0.75rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem;";
+                item.innerHTML = `
+                    <div>
+                        <div style="font-weight:600; font-size:0.9rem;">${escapeHtml(formatDocumentType(doc.documentType))}</div>
+                        <div style="font-size:0.8rem; color:var(--ink-soft);">${escapeHtml(doc.documentName)} · ${escapeHtml(formatUploadedAt(doc.uploadedAt))}</div>
+                    </div>
+                    <button type="button" style="padding:0.35rem 0.75rem; font-size:0.8rem; border:1px solid var(--accent); border-radius:6px; background:var(--accent-soft); color:var(--accent); cursor:pointer;">View details</button>
+                `;
+                item.querySelector("button").addEventListener("click", () => openDocumentDetailsModal(doc));
+                container.prepend(item);
+            });
+        } catch (err) {
+            console.error("Failed to load shared documents:", err);
+        }
+    }
+
     loadCaregiverActions();
+    loadSharedDocuments();
     setInterval(() => {
         if (document.visibilityState === "hidden") return;
         loadCaregiverActions();
+        loadSharedDocuments();
     }, 10000);
 })();
  

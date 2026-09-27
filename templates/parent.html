@@ -4,80 +4,53 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Parent Home | Y.P.I.A</title>
-<style>
-  :root { --ypia-green: #2e7d32; --ypia-green-dark: #1f5723; }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    min-height: 100vh;
-    background: var(--ypia-green);
-    color: #fff;
-    font-family: system-ui, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1.25rem;
-    padding: 2rem 1rem;
-    text-align: center;
-  }
-  .brand { font-size: 1.5rem; font-weight: 800; letter-spacing: 0.05em; margin: 0; }
-  .greeting { font-size: 2rem; margin: 0; }
-  .prompt { font-size: 1.25rem; margin: 0 0 0.75rem; opacity: 0.9; }
-  #voiceButton {
-    width: 180px;
-    height: 180px;
-    border-radius: 50%;
-    border: none;
-    background: #fff;
-    color: var(--ypia-green-dark);
-    font-size: 4rem;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  }
-  #voiceButton:active { transform: scale(0.97); }
-  #voiceStatus { font-size: 1.1rem; margin: 0.25rem 0 1.5rem; }
-  #uploadButton {
-    font-size: 1.15rem;
-    padding: 1rem 1.75rem;
-    border-radius: 999px;
-    border: 2px solid #fff;
-    background: transparent;
-    color: #fff;
-    cursor: pointer;
-    max-width: 90vw;
-  }
-  .upload-hint { font-size: 0.9rem; opacity: 0.85; margin: 0.4rem 0 0; }
-  #uploadStatus { font-size: 0.9rem; margin: 0.4rem 0 0; min-height: 1.2em; }
-  .logout {
-    margin-top: 2.5rem;
-    font-size: 0.85rem;
-    color: #fff;
-    background: none;
-    border: none;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-</style>
+<link rel="stylesheet" href="/static/parent.css">
 </head>
 <body>
-  <h1 class="brand">Y.P.I.A</h1>
-  <h2 class="greeting" id="greeting">Hi</h2>
-  <p class="prompt">What can I help you with?</p>
+  <header class="app-header">
+    <span class="brand">Y.P.I.A</span>
+    <button id="avatarButton" class="avatar-button" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Open profile menu">
+      <img id="avatarImage" class="avatar-image" src="/static/images/elderwoman.jpg" alt="">
+      <span id="avatarInitials" class="avatar-initials" hidden></span>
+    </button>
+  </header>
 
-  <button id="voiceButton" aria-label="Start voice conversation">🎤</button>
-  <p id="voiceStatus">Tap to talk</p>
+  <div id="profileOverlay" class="profile-overlay" hidden></div>
+  <div id="profilePanel" class="profile-panel" hidden role="dialog" aria-modal="true" aria-label="Profile">
+    <div class="profile-panel-header">
+      <img id="profileAvatarImage" class="profile-avatar-image" src="/static/images/elderwoman.jpg" alt="">
+      <span id="profileAvatarInitials" class="avatar-initials" hidden></span>
+      <div>
+        <p class="profile-name" id="profileName">Parent</p>
+        <p class="profile-email" id="profileEmail" hidden></p>
+        <p class="profile-role">Parent account</p>
+      </div>
+    </div>
+    <button id="logoutButton" class="profile-logout" type="button">Log out</button>
+  </div>
 
-  <button id="uploadButton" aria-label="Add a medical document: photo or PDF">＋ Add medical document</button>
-  <p class="upload-hint">Photo / Image / PDF</p>
-  <p id="uploadStatus"></p>
-  <a href="/static/games/index.html" style="font-size:1.15rem;padding:1rem 1.75rem;border-radius:999px;border:2px solid #fff;color:#fff;text-decoration:none">🎲 Play games</a>
+  <main class="parent-main">
+    <div class="greeting-block">
+      <h1 class="greeting" id="greeting">Hi</h1>
+      <p class="prompt">What can I help you with today?</p>
+    </div>
 
-  <button class="logout" id="logoutButton">Log out</button>
+    <div class="voice-hero">
+      <button id="voiceButton" class="voice-orb" type="button" aria-label="Start voice conversation">
+        <span class="orb-ring" aria-hidden="true"></span>
+        <span class="orb-core" aria-hidden="true">🎤</span>
+      </button>
+      <p id="voiceStatus" class="voice-status" role="status" aria-live="polite">Tap to talk</p>
+    </div>
+
+    <section class="upload-card">
+      <button id="uploadButton" class="upload-button" type="button" aria-label="Add a medical document">＋ Add medical document</button>
+      <p class="upload-hint">Prescription, visit summary, appointment sheet, or other healthcare document</p>
+      <div id="uploadToast" class="toast" role="status" aria-live="polite" hidden></div>
+    </section>
+
+    <a href="/static/games/index.html" class="games-link">🎲 Play games</a>
+  </main>
 
   <script>
     const user = JSON.parse(localStorage.getItem("ypia_user") || "null");
@@ -85,12 +58,88 @@
       window.location.replace("/login");
     } else if (user.role !== "parent") {
       window.location.replace("/");
-    } else {
-      const firstName = (user.fullName || "").trim().split(" ")[0] || "there";
-      document.getElementById("greeting").textContent = `Hi, ${firstName}`;
     }
 
-    const uploadStatus = document.getElementById("uploadStatus");
+    const firstName = (user?.fullName || "").trim().split(" ")[0] || "there";
+
+    function updateGreeting() {
+      const hour = new Date().getHours();
+      const period = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+      const greetingEl = document.getElementById("greeting");
+      if (greetingEl) greetingEl.textContent = `Good ${period}, ${firstName}`;
+    }
+    updateGreeting();
+    setInterval(updateGreeting, 60000);
+
+    function getInitials(fullName) {
+      const parts = (fullName || "").trim().split(/\s+/).filter(Boolean);
+      if (parts.length === 0) return "?";
+      return (parts[0][0] + (parts[1]?.[0] || "")).toUpperCase();
+    }
+
+    function setupAvatarFallback(imageId, initialsId) {
+      const img = document.getElementById(imageId);
+      const initials = document.getElementById(initialsId);
+      if (!img || !initials) return;
+      initials.textContent = getInitials(user?.fullName);
+      img.addEventListener("error", () => {
+        img.hidden = true;
+        initials.hidden = false;
+      }, { once: true });
+    }
+    setupAvatarFallback("avatarImage", "avatarInitials");
+    setupAvatarFallback("profileAvatarImage", "profileAvatarInitials");
+
+    const profileNameEl = document.getElementById("profileName");
+    if (profileNameEl) profileNameEl.textContent = user?.fullName || "Parent";
+    if (user?.email) {
+      const profileEmailEl = document.getElementById("profileEmail");
+      if (profileEmailEl) {
+        profileEmailEl.textContent = user.email;
+        profileEmailEl.hidden = false;
+      }
+    }
+
+    const avatarButton = document.getElementById("avatarButton");
+    const profilePanel = document.getElementById("profilePanel");
+    const profileOverlay = document.getElementById("profileOverlay");
+
+    function openProfilePanel() {
+      profilePanel.hidden = false;
+      profileOverlay.hidden = false;
+      avatarButton.setAttribute("aria-expanded", "true");
+    }
+    function closeProfilePanel() {
+      profilePanel.hidden = true;
+      profileOverlay.hidden = true;
+      avatarButton.setAttribute("aria-expanded", "false");
+    }
+    avatarButton.addEventListener("click", () => {
+      if (profilePanel.hidden) openProfilePanel();
+      else closeProfilePanel();
+    });
+    profileOverlay.addEventListener("click", closeProfilePanel);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !profilePanel.hidden) closeProfilePanel();
+    });
+
+    document.getElementById("logoutButton").addEventListener("click", () => {
+      localStorage.removeItem("ypia_user");
+      window.location.href = "/login";
+    });
+
+    const uploadToast = document.getElementById("uploadToast");
+    let uploadToastTimer = null;
+    function showUploadToast(message, isError) {
+      uploadToast.textContent = message;
+      uploadToast.classList.toggle("toast-error", Boolean(isError));
+      uploadToast.hidden = false;
+      clearTimeout(uploadToastTimer);
+      uploadToastTimer = setTimeout(() => {
+        uploadToast.hidden = true;
+      }, isError ? 5000 : 4000);
+    }
+
     const uploadInput = document.createElement("input");
     uploadInput.type = "file";
     uploadInput.accept = ".jpg,.jpeg,.png,.pdf";
@@ -105,7 +154,7 @@
       const file = uploadInput.files?.[0];
       if (!file || !user?.id) return;
 
-      uploadStatus.textContent = "Uploading...";
+      showUploadToast("Uploading...", false);
       const formData = new FormData();
       formData.append("document", file);
       formData.append("userId", user.id);
@@ -115,19 +164,16 @@
           method: "POST",
           body: formData,
         });
-        uploadStatus.textContent = response.ok
-          ? "Document saved."
-          : "Could not process that document. Please try again.";
+        if (response.ok) {
+          showUploadToast("✓ Document added and shared with your caregiver", false);
+        } else {
+          showUploadToast("Could not process that document. Please try again.", true);
+        }
       } catch {
-        uploadStatus.textContent = "Something went wrong. Please try again.";
+        showUploadToast("Something went wrong. Please try again.", true);
       } finally {
         uploadInput.value = "";
       }
-    });
-
-    document.getElementById("logoutButton").addEventListener("click", () => {
-      localStorage.removeItem("ypia_user");
-      window.location.href = "/login";
     });
   </script>
 
@@ -137,16 +183,52 @@
     const voiceButton = document.getElementById("voiceButton");
     const voiceStatus = document.getElementById("voiceStatus");
     const user = JSON.parse(localStorage.getItem("ypia_user") || "null");
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
     let conversation = null;
     let activeConversationId = null;
+    let currentMode = "listening";
+    let orbAnimationFrame = null;
 
     function setStatus(text) {
       voiceStatus.textContent = text;
     }
 
+    // Reads real mic/agent loudness from the ElevenLabs session already
+    // holding the microphone — no second getUserMedia call, no fake motion.
+    function animateOrb() {
+      let volume = 0;
+      if (conversation) {
+        try {
+          volume = currentMode === "speaking" ? conversation.getOutputVolume() : conversation.getInputVolume();
+        } catch {
+          volume = 0;
+        }
+      }
+      const clamped = Math.max(0, Math.min(1, volume || 0));
+      const scale = prefersReducedMotion ? 1 : 1 + clamped * 0.16;
+      voiceButton.style.setProperty("--orb-scale", scale.toFixed(3));
+      orbAnimationFrame = requestAnimationFrame(animateOrb);
+    }
+
+    function startOrbAnimation() {
+      if (orbAnimationFrame) return;
+      orbAnimationFrame = requestAnimationFrame(animateOrb);
+    }
+
+    function stopOrbAnimation() {
+      if (orbAnimationFrame) {
+        cancelAnimationFrame(orbAnimationFrame);
+        orbAnimationFrame = null;
+      }
+      voiceButton.style.removeProperty("--orb-scale");
+    }
+
     function reset() {
       conversation = null;
       activeConversationId = null;
+      stopOrbAnimation();
+      voiceButton.classList.remove("is-connecting", "is-active", "is-speaking");
       voiceButton.disabled = false;
       setStatus("Tap to talk");
     }
@@ -177,12 +259,14 @@
 
     async function startConversation() {
       voiceButton.disabled = true;
+      voiceButton.classList.add("is-connecting");
       setStatus("Connecting...");
 
       try {
         await navigator.mediaDevices.getUserMedia({ audio: true });
       } catch {
         voiceButton.disabled = false;
+        voiceButton.classList.remove("is-connecting");
         setStatus("Microphone access denied");
         return;
       }
@@ -305,23 +389,35 @@
           },
           onConnect: ({ conversationId }) => {
             activeConversationId = conversationId;
+            currentMode = "listening";
+            voiceButton.classList.remove("is-connecting");
+            voiceButton.classList.add("is-active");
+            setStatus("Tap to end");
+            startOrbAnimation();
             if (user?.id && conversationId) {
               registerConversation(user.id, conversationId);
             }
           },
           onDisconnect: reset,
-          onModeChange: ({ mode }) => setStatus(mode === "speaking" ? "Speaking..." : "Listening..."),
+          onModeChange: ({ mode }) => {
+            currentMode = mode;
+            voiceButton.classList.toggle("is-speaking", mode === "speaking");
+            setStatus(mode === "speaking" ? "Speaking..." : "Listening...");
+          },
           onError: () => {
             voiceButton.disabled = false;
+            voiceButton.classList.remove("is-connecting", "is-active", "is-speaking");
+            stopOrbAnimation();
             setStatus("Connection failed. Tap to retry.");
             conversation = null;
           },
         });
 
         voiceButton.disabled = false;
-        setStatus("Listening...");
       } catch {
         voiceButton.disabled = false;
+        voiceButton.classList.remove("is-connecting", "is-active", "is-speaking");
+        stopOrbAnimation();
         setStatus("Connection failed. Tap to retry.");
         conversation = null;
       }

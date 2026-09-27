@@ -21,6 +21,7 @@ import {
   getActionConversation,
 } from "./services/caregiverActions.js";
 import { registerVoiceConversation, syncVoiceConversation } from "./services/voiceConversations.js";
+import { listSharedDocuments } from "./services/caregiverDocuments.js";
 import { DatabaseConfigurationError, getPool } from "./db.js";
 import { scoreUnreviewedSchedule } from "./services/schedulePoints.js";
 import { signupSchema, loginSchema, backgroundNotesSchema } from "./schemas.js";
@@ -458,6 +459,23 @@ export function createApp() {
     } catch (error: unknown) {
       console.error("Failed to load action conversation", error);
       response.status(500).json({ error: "Unable to load conversation" });
+    }
+  });
+
+  app.get("/api/caregiver/documents", async (request, response) => {
+    const userId = parseUserId(request.query.userId);
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+
+    try {
+      const parentIds = await getApprovedParentIdsForCaregiver(userId);
+      const documents = await listSharedDocuments(parentIds);
+      response.json({ documents });
+    } catch (error: unknown) {
+      console.error("Failed to load shared documents", error);
+      response.status(500).json({ error: "Unable to load shared documents" });
     }
   });
 
