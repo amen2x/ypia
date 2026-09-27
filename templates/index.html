@@ -24,7 +24,7 @@
     <div class="nav-links" role="navigation" aria-label="Pages">
       <a href="#dashboard" class="nav-link" data-view="dashboard" aria-label="Dashboard">🏠 <span>Dashboard</span></a>
       <a href="#prescriptions" class="nav-link" data-view="prescriptions" aria-label="Prescriptions">💊 <span>Prescriptions</span></a>
-      <a href="#summary" class="nav-link" data-view="summary" aria-label="Summary">🌿 <span>Summary</span></a>
+      <a href="#summary" class="nav-link" data-view="summary" aria-label="Summary">📋 <span>Summary</span></a>
       <a href="#documents" class="nav-link" data-view="documents" aria-label="Documents">📄 <span>Documents</span></a>
       <a href="#factcheck" class="nav-link" data-view="factcheck" aria-label="Fact check">🧐 <span>Fact check</span></a>
     </div>
@@ -41,20 +41,8 @@
   <section class="hero">
     <div class="hero-inner" id="heroCarousel" aria-roledescription="carousel" aria-label="Featured photos">
 
-      <!-- Swap these three images for your own (keep them in /static/images/).
-           If a crop cuts off heads, change --focus on that slide: "x% y%" = where the faces are.
-           Lower y (e.g. 10%) keeps more of the top; higher x (e.g. 75%) favors the right side. -->
-      <div class="hero-slides">
-        <figure class="hero-slide is-active" aria-roledescription="slide" aria-label="1 of 3" style="--focus: 50% 22%">
-          <img src="/static/images/elders.jpeg" alt="Older couple smiling together">
-        </figure>
-        <figure class="hero-slide" aria-roledescription="slide" aria-label="2 of 3" aria-hidden="true" style="--focus: 50% 22%">
-          <img src="/static/images/elders2.jpeg" alt="Grandmother laughing with family" loading="lazy">
-        </figure>
-        <figure class="hero-slide" aria-roledescription="slide" aria-label="3 of 3" aria-hidden="true" style="--focus: 50% 22%">
-          <img src="/static/images/elders3.jpeg" alt="Older man gardening outdoors" loading="lazy">
-        </figure>
-      </div>
+      <!-- Slides are built by the carousel script from HERO_PHOTOS (or /api/header-photos). -->
+      <div class="hero-slides" id="heroSlides"></div>
       <div class="hero-shade" aria-hidden="true"></div>
 
       <div class="hero-content">
@@ -69,11 +57,7 @@
 
       <div class="hero-controls">
         <button class="hero-arrow" type="button" data-dir="-1" aria-label="Previous photo">‹</button>
-        <div class="hero-dots" role="tablist" aria-label="Choose photo">
-          <button class="hero-dot is-active" type="button" role="tab" aria-label="Photo 1" aria-selected="true"></button>
-          <button class="hero-dot" type="button" role="tab" aria-label="Photo 2" aria-selected="false"></button>
-          <button class="hero-dot" type="button" role="tab" aria-label="Photo 3" aria-selected="false"></button>
-        </div>
+<div class="hero-dots" id="heroDots" role="tablist" aria-label="Choose photo"></div>
         <button class="hero-arrow" type="button" data-dir="1" aria-label="Next photo">›</button>
       </div>
     </div>
@@ -156,30 +140,76 @@
           <h1 class="page-title"><span class="parent-name-echo">Susan</span>'s prescriptions</h1>
           <p class="page-sub">What she is taking right now, and whether everything looks on track.</p>
         </header>
-        <div class="box box--sky page-box">
+        <!-- Overview: kept as its own container; status is driven by today's doses + refills -->
+        <div class="box box--sky page-box rx-page">
           <div class="rx-container">
             <div class="rx-icon" aria-hidden="true">💊</div>
             <div class="rx-body">
-              <h2 class="tag"><span class="parent-name-echo">Susan</span>'s current prescriptions</h2>
-              <p>A list of the medications <span class="parent-name-echo">Susan</span> is taking, with a status that updates based on her prescriptions.</p>
+              <h2 class="tag"><span class="parent-name-echo">Susan</span>'s current prescriptions <span class="demo-badge" title="Sample data for the demo — replace with your API">demo data</span></h2>
+              <p id="rxSummaryText">Loading medications…</p>
             </div>
-            <span class="status-indicator" data-status="good">All on track</span>
+            <span class="status-indicator" id="rxStatus" data-status="good">All on track</span>
           </div>
+
+          <div class="rx-stats" id="rxStats"></div>
+        </div>
+
+        <!-- Today's schedule -->
+        <div class="box box--butter page-box rx-section">
+          <div class="rx-section-head">
+            <h2 class="tag">Today's pill schedule</h2>
+            <span class="rx-date" id="rxToday"></span>
+          </div>
+          <p class="rx-hint">Tap a dose to mark it taken. In the full app <span class="parent-name-echo">Susan</span> checks these off herself, or tells Yupia by voice.</p>
+          <div class="dose-slots" id="doseSlots"></div>
+        </div>
+
+        <!-- Medication cards with refill countdowns -->
+        <div class="box box--sage page-box rx-section">
+          <div class="rx-section-head">
+            <h2 class="tag">Medications &amp; refills</h2>
+            <span class="rx-date">Refill reminders are added to Action items 7 days ahead</span>
+          </div>
+          <div class="med-grid" id="medGrid"></div>
         </div>
       </section>
 
       <!-- ============ Summary & preferences ============ -->
       <section class="view" id="view-summary" data-view="summary" hidden>
         <header class="page-head" style="--card-accent: var(--terra);">
-          <span class="page-eyebrow">About her</span>
-          <h1 class="page-title"><span class="parent-name-echo">Susan</span>'s summary &amp; preferences</h1>
-          <p class="page-sub">The little things that make a visit, a meal or a conversation go well.</p>
+          <span class="page-eyebrow" id="careReportPeriod">Care summary</span>
+          <h1 class="page-title"><span class="parent-name-echo">Susan</span>'s care summary</h1>
+          <p class="page-sub">Wellness, medications, documents and payments in one report — ready to share with family or bring to a doctor's visit.</p>
+          <div class="page-head-actions">
+            <button type="button" class="btn report-print-btn" id="printReportBtn">🖨 Print / save as PDF</button>
+            <button type="button" class="btn report-copy-btn" id="copyReportBtn">📋 Copy text for family</button>
+          </div>
         </header>
-        <div class="box box--terra page-box">
-          <div id="parentSummaryBox" class="panel-stack">
-            <h2 class="tag"><span class="parent-name-echo">Susan</span>'s summary &amp; preferences</h2>
-            <p>What <span class="parent-name-echo">Susan</span> enjoys, daily routines, hobbies, and background notes.</p>
 
+        <!-- At a glance: one tile per area, each links to its page -->
+        <div class="report-tiles" id="reportTiles"></div>
+
+        <div class="report-grid">
+          <div class="box box--butter report-card" id="reportWellness"></div>
+          <div class="box box--sky report-card" id="reportRx"></div>
+          <div class="box box--sage report-card" id="reportDocs"></div>
+          <div class="box box--terra report-card" id="reportPayments"></div>
+        </div>
+
+        <!-- Auto-generated talking points -->
+        <div class="box box--plum page-box rx-section report-talk">
+          <div class="rx-section-head">
+            <h2 class="tag">Talking points for the next doctor visit</h2>
+            <span class="rx-date">Generated from everything above</span>
+          </div>
+          <ol class="talk-list" id="reportTalkingPoints"></ol>
+        </div>
+
+        <!-- Background notes (kept — still saves to your backend) -->
+        <details class="box box--terra page-box rx-section notes-details">
+          <summary><span class="tag">About <span class="parent-name-echo">Susan</span> · preferences &amp; notes</span><span class="notes-toggle" aria-hidden="true">▾</span></summary>
+          <div id="parentSummaryBox" class="panel-stack">
+            <p>What <span class="parent-name-echo">Susan</span> enjoys, daily routines, hobbies, and background notes.</p>
             <div id="backgroundNotesContainer">
               <p id="backgroundNotesDisplay" class="notes-display">Loading details...</p>
             </div>
@@ -199,8 +229,7 @@
             </div>
 
             <p id="backgroundSaveStatus" class="save-status" hidden></p>
-          </div>
-        </div>
+        </details>
       </section>
 
       <!-- ============ Documents ============ -->
@@ -210,12 +239,46 @@
           <h1 class="page-title"><span class="parent-name-echo">Susan</span>'s documents</h1>
           <p class="page-sub">Discharge notes, prescriptions and visit summaries she has shared, with the key details pulled out.</p>
         </header>
-        <div class="box box--sage page-box" id="sharedDocumentsBox">
-          <h2 class="tag">Shared documents</h2>
-        <p>Medical documents <span class="parent-name-echo">Susan</span> has shared from Y.P.I.A.</p>
-        <div id="sharedDocumentsList">
-          <p class="schedule-empty">No shared documents yet.</p>
+        <!-- Overview (demo) -->
+        <div class="box box--sage page-box doc-page">
+          <div class="doc-overview">
+            <div class="rx-body">
+              <h2 class="tag">Records at a glance <span class="demo-badge" title="Sample data for the demo — replace with your API">demo data</span></h2>
+              <p id="docSummaryText">Loading documents…</p>
+            </div>
+            <button type="button" class="btn btn--primary doc-scan-btn" id="docScanBtn">📷 Scan a document</button>
+            <input type="file" id="docScanInput" accept="image/*,application/pdf" capture="environment" hidden>
+          </div>
+          <div class="doc-scan-status" id="docScanStatus" hidden></div>
+          <div class="rx-stats" id="docStats"></div>
         </div>
+
+        <!-- Needs attention -->
+        <div class="box box--terra page-box rx-section">
+          <div class="rx-section-head">
+            <h2 class="tag">Needs attention</h2>
+            <span class="rx-date">Pulled from the documents below</span>
+          </div>
+          <div class="attn-list" id="docAttention"></div>
+        </div>
+
+        <!-- All documents -->
+        <div class="box box--sky page-box rx-section">
+          <div class="rx-section-head">
+            <h2 class="tag">All documents</h2>
+            <span class="rx-date">Newest first</span>
+          </div>
+          <div class="doc-filters" id="docFilters" role="tablist" aria-label="Filter documents"></div>
+          <div class="doc-grid" id="docGrid"></div>
+        </div>
+
+        <!-- Live documents shared from the parent app (real API, unchanged) -->
+        <div class="box box--plum page-box rx-section" id="sharedDocumentsBox">
+          <h2 class="tag">Live from <span class="parent-name-echo">Susan</span>'s app</h2>
+          <p>Medical documents <span class="parent-name-echo">Susan</span> has shared from Y.P.I.A.</p>
+          <div id="sharedDocumentsList">
+            <p class="schedule-empty">No shared documents yet.</p>
+          </div>
         </div>
       </section>
 
@@ -1511,7 +1574,7 @@ function addNewItem() {
 // Simple hash router: each navbar link shows one "page" and hides the rest.
 (function () {
   const VIEWS = ["dashboard", "prescriptions", "summary", "documents", "factcheck"];
-  const TITLES = { dashboard: "Dashboard", prescriptions: "Prescriptions", summary: "Summary & preferences", documents: "Documents", factcheck: "Fact check" };
+  const TITLES = { dashboard: "Dashboard", prescriptions: "Prescriptions", summary: "Care summary", documents: "Documents", factcheck: "Fact check" };
 
   function show() {
     const name = location.hash.replace("#", "");
@@ -1533,39 +1596,107 @@ function addNewItem() {
 </script>
 <script>
 // Hero photo carousel: crossfade, autoplay (pauses on hover/focus/hidden tab), arrows, dots, keys, swipe.
-(function () {
+//
+// WHERE THE PHOTOS COME FROM
+//  1. If your server has GET /api/header-photos returning ["/static/images/header/a.jpg", ...],
+//     every photo in that folder is used automatically (see the Express snippet in the notes).
+//  2. Otherwise the HERO_PHOTOS list below is used. Put the files in /static/images/header/
+//     (or /static/images/) — .jpg, .jpeg, .png and .webp are all tried automatically.
+//  focus = where the faces are ("x% y%"); lower y keeps more of the top of the photo.
+const HERO_PHOTOS = [
+  { src: "/static/images/header/elders1",  alt: "Older couple smiling together", focus: "50% 22%" },
+  { src: "/static/images/header/elders2",  alt: "Grandmother laughing with family", focus: "50% 22%" },
+  { src: "/static/images/header/elders3",  alt: "Older man gardening outdoors",   focus: "50% 22%" },
+  { src: "/static/images/elders",          alt: "Older adults together",           focus: "50% 22%" },
+  { src: "/static/images/elders2",         alt: "Grandmother laughing with family", focus: "50% 22%" },
+  { src: "/static/images/elders3",         alt: "Older man gardening outdoors",   focus: "50% 22%" }
+];
+const HERO_EXTENSIONS = [".jpeg", ".jpg", ".png", ".webp"];
+
+(async function () {
   const root = document.getElementById("heroCarousel");
   if (!root) return;
-  const slides = Array.from(root.querySelectorAll(".hero-slide"));
-  const dots = Array.from(root.querySelectorAll(".hero-dot"));
+  const slidesEl = document.getElementById("heroSlides");
+  const dotsEl = document.getElementById("heroDots");
   const INTERVAL = 6000;
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   let index = 0, timer = null, paused = false;
 
-  // If a photo is missing, drop that slide so the carousel never shows a blank frame.
-  slides.forEach((slide, i) => {
-    slide.querySelector("img").addEventListener("error", () => {
-      slide.remove(); dots[i]?.remove();
+  // Load one image, trying each extension if the path has none. Resolves to a working URL or null.
+  function findWorkingUrl(src) {
+    const hasExt = /\.(jpe?g|png|webp|gif|avif)$/i.test(src);
+    const candidates = hasExt ? [src] : HERO_EXTENSIONS.map((ext) => src + ext);
+    return new Promise((resolve) => {
+      const tryNext = (i) => {
+        if (i >= candidates.length) return resolve(null);
+        const img = new Image();
+        img.onload = () => resolve(candidates[i]);
+        img.onerror = () => tryNext(i + 1);
+        img.src = candidates[i];
+      };
+      tryNext(0);
     });
+  }
+
+  async function photoList() {
+    try {
+      const base = typeof API_BASE === "string" ? API_BASE : "";
+      const res = await fetch(`${base}/api/header-photos`);
+      if (res.ok) {
+        const urls = await res.json();
+        if (Array.isArray(urls) && urls.length) return urls.map((u) => ({ src: u, alt: "", focus: "50% 22%" }));
+      }
+    } catch (_) { /* no endpoint — fall back to the list */ }
+    return HERO_PHOTOS;
+  }
+
+  const list = await photoList();
+  const found = await Promise.all(list.map((p) => findWorkingUrl(p.src)));
+  const seen = new Set();
+  const photos = [];
+  list.forEach((p, i) => {
+    if (!found[i]) { console.warn(`[hero carousel] photo not found: ${p.src}(${HERO_EXTENSIONS.join("|")})`); return; }
+    if (seen.has(found[i])) return;
+    seen.add(found[i]);
+    photos.push({ ...p, url: found[i] });
   });
-  const liveSlides = () => Array.from(root.querySelectorAll(".hero-slide"));
-  const liveDots = () => Array.from(root.querySelectorAll(".hero-dot"));
+  if (!photos.length) console.warn("[hero carousel] no photos found — showing the plain banner.");
+
+  photos.forEach((p, i) => {
+    const fig = document.createElement("figure");
+    fig.className = "hero-slide";
+    fig.setAttribute("aria-roledescription", "slide");
+    fig.setAttribute("aria-label", `${i + 1} of ${photos.length}`);
+    fig.style.setProperty("--focus", p.focus || "50% 22%");
+    const img = document.createElement("img");
+    img.src = p.url;
+    img.alt = p.alt || "";
+    fig.appendChild(img);
+    slidesEl.appendChild(fig);
+
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "hero-dot";
+    dot.setAttribute("role", "tab");
+    dot.setAttribute("aria-label", `Photo ${i + 1}`);
+    dotsEl.appendChild(dot);
+  });
+
+  const slides = Array.from(slidesEl.children);
+  const dots = Array.from(dotsEl.children);
+  root.classList.toggle("single-slide", slides.length < 2);
 
   function go(to) {
-    const s = liveSlides(), d = liveDots();
-    if (s.length === 0) return;
-    index = (to + s.length) % s.length;
-    s.forEach((el, i) => {
-      const on = i === index;
-      el.classList.toggle("is-active", on);
-      el.setAttribute("aria-hidden", on ? "false" : "true");
+    if (!slides.length) return;
+    index = (to + slides.length) % slides.length;
+    slides.forEach((el, i) => {
+      el.classList.toggle("is-active", i === index);
+      el.setAttribute("aria-hidden", i === index ? "false" : "true");
     });
-    d.forEach((el, i) => {
-      const on = i === index;
-      el.classList.toggle("is-active", on);
-      el.setAttribute("aria-selected", on);
+    dots.forEach((el, i) => {
+      el.classList.toggle("is-active", i === index);
+      el.setAttribute("aria-selected", i === index);
     });
-    root.classList.toggle("single-slide", s.length < 2);
     restart();
   }
 
@@ -1573,7 +1704,7 @@ function addNewItem() {
     clearInterval(timer);
     root.style.setProperty("--hero-interval", INTERVAL + "ms");
     root.classList.remove("is-timing"); void root.offsetWidth; // restart dot progress animation
-    if (paused || reduceMotion || liveSlides().length < 2) return;
+    if (paused || reduceMotion || slides.length < 2) return;
     root.classList.add("is-timing");
     timer = setInterval(() => go(index + 1), INTERVAL);
   }
@@ -1584,7 +1715,7 @@ function addNewItem() {
     const arrow = e.target.closest(".hero-arrow");
     if (arrow) go(index + Number(arrow.dataset.dir));
     const dot = e.target.closest(".hero-dot");
-    if (dot) go(liveDots().indexOf(dot));
+    if (dot) go(dots.indexOf(dot));
   });
   root.addEventListener("mouseenter", () => setPaused(true));
   root.addEventListener("mouseleave", () => setPaused(false));
@@ -1642,6 +1773,740 @@ function addNewItem() {
     new ResizeObserver(update).observe(list);
     update();
   });
+})();
+</script>
+<script>
+// ================= Prescriptions page (demo data) =================
+// Swap MEDICATIONS for data from your API later. Dates are relative to today,
+// so the demo always shows one refill that's coming due.
+(function () {
+  const DAY = 24 * 60 * 60 * 1000;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // When each part of the day happens (24h clock) — used to decide upcoming / due / missed.
+  const SLOTS = [
+    { id: "morning", label: "Morning", icon: "🌅", hour: 8 },
+    { id: "midday",  label: "Midday",  icon: "☀️", hour: 12 },
+    { id: "evening", label: "Evening", icon: "🌇", hour: 18 },
+    { id: "bedtime", label: "Bedtime", icon: "🌙", hour: 21.5 }
+  ];
+  const DUE_WINDOW_BEFORE = 1;   // hours before a slot it counts as "due now"
+  const MISSED_AFTER = 2;        // hours after a slot it counts as "missed"
+  const REFILL_WARN_DAYS = 7;    // add an action item this many days before running out
+
+  const MEDICATIONS = [
+    { id: "lisinopril", copay: 4.00, name: "Lisinopril", dose: "10 mg tablet", purpose: "Blood pressure",
+      slots: ["morning"], note: "Stand up slowly — can cause dizziness.",
+      prescriber: "Dr. Patel", pharmacy: "Walgreens · Broadway", supplyDays: 30, daysLeft: 15, color: "#6fa3c7" },
+    { id: "metformin", copay: 0.00, name: "Metformin", dose: "500 mg tablet", purpose: "Blood sugar",
+      slots: ["morning", "evening"], note: "Take with breakfast and dinner.",
+      prescriber: "Dr. Patel", pharmacy: "Walgreens · Broadway", supplyDays: 30, daysLeft: 4, color: "#d9734e" },
+    { id: "atorvastatin", copay: 8.50, name: "Atorvastatin", dose: "20 mg tablet", purpose: "Cholesterol",
+      slots: ["bedtime"], note: "Avoid large amounts of grapefruit.",
+      prescriber: "Dr. Nguyen", pharmacy: "Walgreens · Broadway", supplyDays: 30, daysLeft: 23, color: "#7b5ea7" },
+    { id: "levothyroxine", copay: 12.00, name: "Levothyroxine", dose: "50 mcg tablet", purpose: "Thyroid",
+      slots: ["morning"], note: "On waking, empty stomach, 30 min before food.",
+      prescriber: "Dr. Nguyen", pharmacy: "CVS · Forum Blvd", supplyDays: 90, daysLeft: 35, color: "#2f6b4f" },
+    { id: "vitamind", copay: 6.99, name: "Vitamin D3", dose: "1000 IU softgel", purpose: "Bone health",
+      slots: ["midday"], note: "Over the counter — take with a meal.",
+      prescriber: "Over the counter", pharmacy: "—", supplyDays: 120, daysLeft: 60, color: "#e0a52b" }
+  ];
+
+  // Demo: doses in slots that have already passed start as taken, except one missed
+  // evening dose so the "missed" state is visible when the demo runs late in the day.
+  const DEMO_MISSED = new Set(["metformin@evening"]);
+  const taken = new Map(); // doseId -> time taken (Date)
+
+  const $ = (id) => document.getElementById(id);
+  if (!$("medGrid")) return;
+
+  const esc = (v) => { const d = document.createElement("div"); d.textContent = v ?? ""; return d.innerHTML; };
+  const parent = () => (document.getElementById("parent-name")?.textContent || "your parent").trim();
+  const fmtTime = (d) => d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const fmtDate = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const slotTime = (slot) => new Date(today.getTime() + slot.hour * 3600 * 1000);
+
+  function doses() {
+    return SLOTS.map((slot) => ({
+      slot,
+      items: MEDICATIONS.filter((m) => m.slots.includes(slot.id)).map((m) => ({ med: m, id: `${m.id}@${slot.id}` }))
+    })).filter((g) => g.items.length);
+  }
+
+  function doseState(dose, slot) {
+    if (taken.has(dose.id)) return "taken";
+    const hoursFromSlot = (Date.now() - slotTime(slot).getTime()) / 3600000;
+    if (hoursFromSlot > MISSED_AFTER) return "missed";
+    if (hoursFromSlot >= -DUE_WINDOW_BEFORE) return "due";
+    return "upcoming";
+  }
+
+  // seed demo "taken" doses
+  doses().forEach(({ slot, items }) => items.forEach((d) => {
+    const passed = (Date.now() - slotTime(slot).getTime()) / 3600000 > MISSED_AFTER;
+    if (passed && !DEMO_MISSED.has(d.id)) taken.set(d.id, new Date(slotTime(slot).getTime() + 7 * 60000));
+  }));
+
+  // ---------- Today's schedule ----------
+  function renderSchedule() {
+    $("rxToday").textContent = today.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+    const wrap = $("doseSlots");
+    wrap.innerHTML = "";
+    doses().forEach(({ slot, items }) => {
+      const col = document.createElement("div");
+      col.className = "dose-slot";
+      const done = items.filter((d) => taken.has(d.id)).length;
+      col.innerHTML = `
+        <div class="dose-slot-head">
+          <span class="dose-slot-icon" aria-hidden="true">${slot.icon}</span>
+          <div><strong>${slot.label}</strong><span>${fmtTime(slotTime(slot))}</span></div>
+          <span class="dose-slot-count">${done}/${items.length}</span>
+        </div>`;
+      items.forEach((d) => {
+        const state = doseState(d, slot);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `dose dose--${state}`;
+        btn.style.setProperty("--med", d.med.color);
+        btn.setAttribute("aria-pressed", state === "taken");
+        const stateText = state === "taken" ? `Taken ${fmtTime(taken.get(d.id))}`
+          : { due: "Due now", missed: "Missed", upcoming: "Upcoming" }[state];
+        btn.innerHTML = `
+          <span class="dose-check" aria-hidden="true">${state === "taken" ? "✓" : ""}</span>
+          <span class="dose-text"><strong>${esc(d.med.name)}</strong><span>${esc(d.med.dose)}</span></span>
+          <span class="dose-state">${stateText}</span>`;
+        btn.addEventListener("click", () => {
+          if (taken.has(d.id)) taken.delete(d.id); else taken.set(d.id, new Date());
+          renderAll();
+        });
+        col.appendChild(btn);
+      });
+      wrap.appendChild(col);
+    });
+  }
+
+  // ---------- Medication cards + refill countdown ----------
+  const refillDate = (m) => new Date(today.getTime() + m.daysLeft * DAY);
+  const refillLevel = (m) => m.daysLeft <= REFILL_WARN_DAYS ? "low" : m.daysLeft <= 14 ? "soon" : "ok";
+
+  function renderMeds() {
+    const grid = $("medGrid");
+    grid.innerHTML = "";
+    MEDICATIONS.forEach((m) => {
+      const level = refillLevel(m);
+      const pct = Math.max(0, Math.min(100, Math.round((m.daysLeft / m.supplyDays) * 100)));
+      const card = document.createElement("article");
+      card.className = `med-card med-card--${level}`;
+      card.style.setProperty("--med", m.color);
+      card.innerHTML = `
+        <div class="med-card-top">
+          <span class="med-dot" aria-hidden="true"></span>
+          <div class="med-title">
+            <strong>${esc(m.name)}</strong>
+            <span>${esc(m.dose)}</span>
+          </div>
+          <span class="med-purpose">${esc(m.purpose)}</span>
+        </div>
+        <div class="med-slots">${m.slots.map((id) => {
+          const s = SLOTS.find((x) => x.id === id);
+          return `<span class="med-chip">${s.icon} ${s.label}</span>`;
+        }).join("")}</div>
+        <p class="med-note">${esc(m.note)}</p>
+        <div class="refill">
+          <div class="refill-row">
+            <span>${m.daysLeft} day${m.daysLeft === 1 ? "" : "s"} left</span>
+            <span>Refill by ${fmtDate(refillDate(m))}</span>
+          </div>
+          <div class="refill-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${esc(m.name)} supply remaining">
+            <span style="width:${pct}%"></span>
+          </div>
+        </div>
+        <div class="med-foot">
+          <span>${esc(m.prescriber)} · ${esc(m.pharmacy)}</span>
+          ${m.prescriber !== "Over the counter" ? `<button type="button" class="btn btn--soft med-refill-btn">Remind me to refill</button>` : ""}
+        </div>`;
+      const refillBtn = card.querySelector(".med-refill-btn");
+      if (refillBtn && document.getElementById(`rx-refill-${m.id}`)) {
+        refillBtn.textContent = "✓ In Action items";
+        refillBtn.disabled = true;
+      }
+      refillBtn?.addEventListener("click", (e) => {
+        addRefillItem(m);
+        e.currentTarget.textContent = "✓ Added to Action items";
+        e.currentTarget.disabled = true;
+      });
+      grid.appendChild(card);
+    });
+  }
+
+  function addRefillItem(m) {
+    if (typeof window.addActionItem !== "function") return;
+    const due = new Date(refillDate(m).getTime() - 2 * DAY); // leave a 2-day cushion
+    window.addActionItem(
+      `rx-refill-${m.id}`,
+      `Refill ${parent()}'s ${m.name} (${m.pharmacy.split(" · ")[0]})`,
+      refillLevel(m) === "low" ? "high" : "medium",
+      isoDate(due < today ? today : due)
+    );
+  }
+
+  // ---------- Overview + status ----------
+  function renderOverview() {
+    const all = doses().flatMap(({ slot, items }) => items.map((d) => doseState(d, slot)));
+    const takenCount = all.filter((s) => s === "taken").length;
+    const missed = all.filter((s) => s === "missed").length;
+    const due = all.filter((s) => s === "due").length;
+    const lowRefills = MEDICATIONS.filter((m) => refillLevel(m) === "low");
+
+    const status = $("rxStatus");
+    let level = "good", label = "All on track";
+    if (missed) { level = "bad"; label = `${missed} missed dose${missed > 1 ? "s" : ""}`; }
+    else if (due || lowRefills.length) { level = "warn"; label = due ? `${due} dose${due > 1 ? "s" : ""} due now` : "Refill needed soon"; }
+    status.dataset.status = level;
+    status.textContent = label;
+
+    $("rxSummaryText").textContent =
+      `${parent()} takes ${MEDICATIONS.length} medications. ${takenCount} of ${all.length} doses taken today` +
+      (lowRefills.length ? ` · ${lowRefills.map((m) => m.name).join(", ")} runs out in ${lowRefills[0].daysLeft} days.` : ".");
+
+    const nextRefill = MEDICATIONS.slice().sort((a, b) => a.daysLeft - b.daysLeft)[0];
+    $("rxStats").innerHTML = `
+      <div class="rx-stat"><span class="rx-stat-num">${MEDICATIONS.length}</span><span>medications</span></div>
+      <div class="rx-stat"><span class="rx-stat-num">${takenCount}/${all.length}</span><span>doses taken today</span></div>
+      <div class="rx-stat ${missed ? "is-bad" : ""}"><span class="rx-stat-num">${missed}</span><span>missed today</span></div>
+      <div class="rx-stat ${refillLevel(nextRefill) === "low" ? "is-warn" : ""}"><span class="rx-stat-num">${nextRefill.daysLeft}d</span><span>until ${esc(nextRefill.name)} runs out</span></div>`;
+  }
+
+  function renderAll() {
+    renderSchedule();
+    renderOverview();
+    document.dispatchEvent(new CustomEvent("ypia:update"));
+  }
+
+  // Shared with the Summary page
+  window.YPIA = window.YPIA || {};
+  window.YPIA.rx = {
+    meds: MEDICATIONS,
+    refillDate,
+    refillLevel,
+    todayDoses: () => doses().flatMap(({ slot, items }) =>
+      items.map((d) => ({ med: d.med, slot, state: doseState(d, slot) })))
+  };
+
+  // Auto-add refill reminders for anything inside the warning window.
+  MEDICATIONS.filter((m) => refillLevel(m) === "low" && m.prescriber !== "Over the counter").forEach(addRefillItem);
+
+  renderMeds();
+  renderAll();
+
+  // Keep due/missed states fresh as the day goes on.
+  setInterval(renderAll, 60 * 1000);
+})();
+</script>
+<script>
+// ================= Documents page (demo data) =================
+// DEMO_DOCS stands in for what your backend + Gemini extraction would return.
+// Dates are relative to today so the demo always has something due soon.
+(function () {
+  const DAY = 24 * 60 * 60 * 1000;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const daysFromNow = (n) => new Date(today.getTime() + n * DAY);
+
+  const TYPES = {
+    visit_summary:     { label: "Visit summary",     icon: "🩺", color: "#6fa3c7", group: "visits" },
+    discharge_summary: { label: "Discharge summary", icon: "🏥", color: "#6fa3c7", group: "visits" },
+    lab_results:       { label: "Lab results",       icon: "🧪", color: "#7b5ea7", group: "labs" },
+    insurance_card:    { label: "Insurance card",    icon: "🪪", color: "#2f6b4f", group: "insurance" },
+    eob:               { label: "Explanation of benefits", icon: "📨", color: "#2f6b4f", group: "insurance" },
+    bill:              { label: "Medical bill",      icon: "💵", color: "#d9734e", group: "bills" },
+    prescription:      { label: "Prescription",      icon: "💊", color: "#e0a52b", group: "rx" }
+  };
+  const FILTERS = [
+    { id: "all", label: "All" },
+    { id: "visits", label: "🩺 Visits" },
+    { id: "labs", label: "🧪 Labs" },
+    { id: "insurance", label: "🪪 Insurance" },
+    { id: "bills", label: "💵 Bills" },
+    { id: "rx", label: "💊 Prescriptions" }
+  ];
+
+  const DEMO_DOCS = [
+    { id: "d1", type: "visit_summary", title: "Cardiology check-up", provider: "Dr. Patel · MU Health Care", date: daysFromNow(-3),
+      highlights: ["Blood pressure 138/84 — slightly high", "Continue Lisinopril 10 mg daily", "Walk 20 minutes most days"],
+      facts: [["Reason", "Routine blood pressure follow-up"], ["Next visit", "In 3 months"]],
+      followUp: { text: "Schedule 3-month cardiology follow-up", due: daysFromNow(14) } },
+    { id: "d2", type: "lab_results", title: "Blood work", provider: "Quest Diagnostics", date: daysFromNow(-10),
+      labs: [
+        { name: "A1C", value: "7.1 %", range: "4.0–5.6 %", flag: "high" },
+        { name: "LDL cholesterol", value: "96 mg/dL", range: "< 100 mg/dL", flag: "ok" },
+        { name: "TSH (thyroid)", value: "2.1 mIU/L", range: "0.4–4.0 mIU/L", flag: "ok" }
+      ],
+      highlights: ["1 result outside the normal range (A1C)"],
+      followUp: { text: "Ask Dr. Patel about the A1C result", due: daysFromNow(10) } },
+    { id: "d3", type: "bill", title: "Hospital bill", provider: "St. Mary's Hospital", date: daysFromNow(-5),
+      amountDue: 42.10, dueDate: daysFromNow(12),
+      highlights: ["Patient owes $42.10", "Covers the Sep x-ray visit"],
+      facts: [["Account", "•••• 3321"], ["Pay by", "phone or online portal"]] },
+    { id: "d7", type: "bill", title: "ER visit bill", provider: "Boone Hospital Center", date: daysFromNow(-20),
+      amountDue: 75.00, dueDate: daysFromNow(-2), paid: daysFromNow(-4),
+      highlights: ["ER copay for the wrist sprain", "Paid in full"] },
+    { id: "d4", type: "eob", title: "Explanation of benefits", provider: "Heartland Medicare Advantage", date: daysFromNow(-6),
+      notABill: true, amountDue: 0,
+      highlights: ["This is not a bill", "Cardiology visit covered — you owe $0"],
+      facts: [["Billed by provider", "$245.00"], ["Plan paid", "$205.00"], ["Adjusted", "$40.00"], ["You owe", "$0.00"]] },
+    { id: "d5", type: "insurance_card", title: "Medicare Advantage card", provider: "Heartland Medicare Advantage", date: daysFromNow(-60),
+      sensitive: [["Member ID", "HMA 88214 4417"], ["Group", "MA-2026-OH"]],
+      facts: [["Plan type", "Medicare Advantage (PPO)"], ["RxBIN / PCN", "610014 / MEDDPRIME"], ["Primary care copay", "$0"], ["Specialist copay", "$35"], ["Member services", "1-800-555-0142"]],
+      highlights: ["Specialist copay $35", "Pharmacy info saved for pickup"] },
+    { id: "d6", type: "discharge_summary", title: "ER discharge — sprained wrist", provider: "Boone Hospital Center", date: daysFromNow(-24),
+      highlights: ["Left wrist sprain from a fall at home", "Wear brace for 2 weeks", "Physical therapy recommended"],
+      facts: [["Diagnosis", "Left wrist sprain"], ["Medications", "Acetaminophen as needed"]],
+      followUp: { text: "Book physical therapy for wrist", due: daysFromNow(8) } }
+  ];
+
+  // What the demo "Scan a document" button adds, one per scan.
+  const SCAN_QUEUE = [
+    { id: "s1", type: "prescription", title: "Pharmacy printout — Metformin", provider: "Walgreens · Broadway", date: today,
+      highlights: ["Metformin 500 mg, twice daily with meals", "30 tablets · 2 refills left"],
+      facts: [["Filled", "Today"], ["Days supply", "30"], ["Refill due", daysFromNow(28).toLocaleDateString(undefined, { month: "short", day: "numeric" })]] },
+    { id: "s2", type: "bill", title: "Lab bill", provider: "Quest Diagnostics", date: today,
+      amountDue: 18.5, dueDate: daysFromNow(21),
+      highlights: ["Patient owes $18.50", "For the blood work 10 days ago"] }
+  ];
+
+  const docs = DEMO_DOCS.slice();
+  let filter = "all";
+  const $ = (id) => document.getElementById(id);
+  if (!$("docGrid")) return;
+
+  const esc = (v) => { const d = document.createElement("div"); d.textContent = v ?? ""; return d.innerHTML; };
+  const money = (n) => `$${n.toFixed(2)}`;
+  const fmtDate = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const parent = () => (document.getElementById("parent-name")?.textContent || "your parent").trim();
+  const ago = (d) => {
+    const n = Math.round((today - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / DAY);
+    return n === 0 ? "Today" : n === 1 ? "Yesterday" : n < 30 ? `${n} days ago` : fmtDate(d);
+  };
+
+  // ---------- Needs attention (derived from the documents) ----------
+  function attentionItems() {
+    const items = [];
+    docs.forEach((doc) => {
+      if (doc.type === "bill" && doc.amountDue > 0 && !doc.paid) {
+        items.push({ key: `bill-${doc.id}`, icon: "💵", level: "high",
+          text: `Pay ${doc.provider} ${money(doc.amountDue)}`, due: doc.dueDate, doc });
+      }
+      if (doc.notABill) {
+        items.push({ key: `eob-${doc.id}`, icon: "✅", level: "info",
+          text: `${doc.provider} letter is not a bill — nothing to pay`, doc, noAction: true });
+      }
+      (doc.labs || []).filter((l) => l.flag !== "ok").forEach((l) => {
+        items.push({ key: `lab-${doc.id}-${l.name}`, icon: "🧪", level: "medium",
+          text: `${l.name} came back ${l.flag} (${l.value}) — mention at next visit`, due: doc.followUp?.due, doc });
+      });
+      if (doc.followUp && !doc.labs) {
+        items.push({ key: `fu-${doc.id}`, icon: "📅", level: "medium", text: doc.followUp.text, due: doc.followUp.due, doc });
+      }
+    });
+    const order = { high: 0, medium: 1, info: 2 };
+    return items.sort((a, b) => order[a.level] - order[b.level] || (a.due || 0) - (b.due || 0));
+  }
+
+  function renderAttention() {
+    const list = $("docAttention");
+    list.innerHTML = "";
+    attentionItems().forEach((item) => {
+      const row = document.createElement("div");
+      row.className = `attn attn--${item.level}`;
+      const actionId = `doc-${item.key}`;
+      const already = !!document.getElementById(actionId);
+      row.innerHTML = `
+        <span class="attn-icon" aria-hidden="true">${item.icon}</span>
+        <div class="attn-text">
+          <strong>${esc(item.text)}</strong>
+          <span>From: ${esc(TYPES[item.doc.type].label)} · ${esc(item.doc.provider)}${item.due ? ` · due ${fmtDate(item.due)}` : ""}</span>
+        </div>
+        ${item.noAction ? "" : `<button type="button" class="btn btn--soft attn-btn" ${already ? "disabled" : ""}>${already ? "✓ In Action items" : "+ Action item"}</button>`}`;
+      row.querySelector(".attn-btn")?.addEventListener("click", (e) => {
+        if (typeof window.addActionItem !== "function") return;
+        window.addActionItem(actionId, item.text.replace(/^Pay /, `Pay ${parent()}'s bill: `),
+          item.level === "high" ? "high" : "medium", iso(item.due || today));
+        e.currentTarget.textContent = "✓ In Action items";
+        e.currentTarget.disabled = true;
+      });
+      list.appendChild(row);
+    });
+    if (!list.children.length) list.innerHTML = `<p class="schedule-empty">Nothing needs attention right now.</p>`;
+  }
+
+  // ---------- Overview ----------
+  function renderOverview() {
+    const owed = docs.filter((d) => d.type === "bill" && !d.paid).reduce((s, d) => s + (d.amountDue || 0), 0);
+    const followUps = docs.filter((d) => d.followUp).length;
+    const flagged = docs.flatMap((d) => d.labs || []).filter((l) => l.flag !== "ok").length;
+    $("docSummaryText").textContent =
+      `${docs.length} documents from ${new Set(docs.map((d) => d.provider.split(" · ")[0])).size} providers. ` +
+      `Key details are pulled out automatically so you don't have to read every page.`;
+    $("docStats").innerHTML = `
+      <div class="rx-stat"><span class="rx-stat-num">${docs.length}</span><span>documents</span></div>
+      <div class="rx-stat ${owed ? "is-warn" : ""}"><span class="rx-stat-num">${money(owed)}</span><span>currently owed</span></div>
+      <div class="rx-stat"><span class="rx-stat-num">${followUps}</span><span>follow-ups mentioned</span></div>
+      <div class="rx-stat ${flagged ? "is-bad" : ""}"><span class="rx-stat-num">${flagged}</span><span>lab result${flagged === 1 ? "" : "s"} flagged</span></div>`;
+  }
+
+  // ---------- Filters + cards ----------
+  function renderFilters() {
+    const wrap = $("docFilters");
+    wrap.innerHTML = "";
+    FILTERS.forEach((f) => {
+      const count = f.id === "all" ? docs.length : docs.filter((d) => TYPES[d.type].group === f.id).length;
+      if (!count && f.id !== "all") return;
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = `doc-filter ${filter === f.id ? "is-active" : ""}`;
+      b.setAttribute("role", "tab");
+      b.setAttribute("aria-selected", filter === f.id);
+      b.innerHTML = `${f.label} <span>${count}</span>`;
+      b.addEventListener("click", () => { filter = f.id; renderFilters(); renderGrid(); });
+      wrap.appendChild(b);
+    });
+  }
+
+  function renderGrid() {
+    const grid = $("docGrid");
+    grid.innerHTML = "";
+    docs.filter((d) => filter === "all" || TYPES[d.type].group === filter)
+      .sort((a, b) => b.date - a.date)
+      .forEach((doc) => {
+        const t = TYPES[doc.type];
+        const card = document.createElement("article");
+        card.className = "doc-card";
+        if (doc.isNew) card.classList.add("is-new");
+        card.style.setProperty("--doc", t.color);
+        const badge = doc.paid ? `<span class="doc-flag doc-flag--ok">Paid ✓</span>`
+          : doc.notABill ? `<span class="doc-flag doc-flag--ok">Not a bill</span>`
+          : doc.amountDue > 0 ? `<span class="doc-flag doc-flag--warn">Owes ${money(doc.amountDue)}</span>`
+          : (doc.labs || []).some((l) => l.flag !== "ok") ? `<span class="doc-flag doc-flag--bad">Flagged result</span>`
+          : doc.isNew ? `<span class="doc-flag doc-flag--new">Just scanned</span>` : "";
+        card.innerHTML = `
+          <div class="doc-card-top">
+            <span class="doc-icon" aria-hidden="true">${t.icon}</span>
+            <div class="doc-card-title">
+              <span class="doc-type">${esc(t.label)}</span>
+              <strong>${esc(doc.title)}</strong>
+              ${badge}
+            </div>
+          </div>
+          <ul class="doc-highlights">${(doc.highlights || []).map((h) => `<li>${esc(h)}</li>`).join("")}</ul>
+          <div class="doc-card-foot">
+            <span>${esc(doc.provider)} · ${ago(doc.date)}</span>
+            <button type="button" class="btn btn--soft">View details</button>
+          </div>`;
+        card.querySelector("button").addEventListener("click", () => openDetails(doc));
+        grid.appendChild(card);
+      });
+  }
+
+  // ---------- Details modal (reuses the page's existing document modal) ----------
+  function openDetails(doc) {
+    const modal = $("documentDetailsModal");
+    const t = TYPES[doc.type];
+    $("documentDetailsModalTitle").textContent = `${t.icon} ${doc.title}`;
+    const rows = (pairs) => pairs.map(([k, v]) => `<div class="kv"><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join("");
+    let html = `<p class="modal-subtext">${esc(t.label)} · ${esc(doc.provider)} · ${fmtDate(doc.date)}</p>`;
+    if (doc.notABill) html += `<div class="doc-callout doc-callout--ok">✅ <strong>This is not a bill.</strong> It explains what insurance paid. Nothing needs to be paid.</div>`;
+    if (doc.paid) html += `<div class="doc-callout doc-callout--ok">✅ <strong>Paid ${money(doc.amountDue)}</strong> on ${fmtDate(doc.paid)}</div>`;
+    else if (doc.amountDue > 0) html += `<div class="doc-callout doc-callout--warn">💵 <strong>${money(doc.amountDue)} due ${fmtDate(doc.dueDate)}</strong></div>`;
+    if (doc.highlights?.length) html += `<h3 class="summary-subheading">Key points</h3><ul class="summary-list">${doc.highlights.map((h) => `<li>${esc(h)}</li>`).join("")}</ul>`;
+    if (doc.labs) {
+      html += `<h3 class="summary-subheading">Results</h3><div class="lab-table">` + doc.labs.map((l) => `
+        <div class="lab-row lab-row--${l.flag}">
+          <span>${esc(l.name)}</span><strong>${esc(l.value)}</strong><span>Normal: ${esc(l.range)}</span>
+          <span class="lab-flag">${l.flag === "ok" ? "In range" : l.flag === "high" ? "High" : "Low"}</span>
+        </div>`).join("") + `</div>`;
+    }
+    if (doc.sensitive) {
+      html += `<h3 class="summary-subheading">Member details</h3><div class="kv-list">` + doc.sensitive.map(([k, v]) => `
+        <div class="kv"><span>${esc(k)}</span><strong class="masked" data-value="${esc(v)}">•••• ${esc(v.slice(-4))}</strong>
+        <button type="button" class="reveal-btn">Show</button></div>`).join("") + `</div>`;
+    }
+    if (doc.facts?.length) html += `<h3 class="summary-subheading">Details</h3><div class="kv-list">${rows(doc.facts)}</div>`;
+    if (doc.followUp) html += `<h3 class="summary-subheading">Follow-up</h3><p>${esc(doc.followUp.text)} — by ${fmtDate(doc.followUp.due)}</p>`;
+    html += `<p class="modal-footnote">Details were pulled from the document automatically — double-check anything important against the original.</p>`;
+    $("documentDetailsModalBody").innerHTML = html;
+    $("documentDetailsModalBody").querySelectorAll(".reveal-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const val = btn.previousElementSibling;
+        const shown = btn.textContent === "Hide";
+        val.textContent = shown ? `•••• ${val.dataset.value.slice(-4)}` : val.dataset.value;
+        btn.textContent = shown ? "Show" : "Hide";
+      });
+    });
+    modal.hidden = false;
+  }
+
+  // ---------- Demo scan ----------
+  // Simulated: shows the extraction steps, then adds the next document from SCAN_QUEUE.
+  // Replace with a real upload to your Gemini extraction endpoint later.
+  const scanBtn = $("docScanBtn");
+  const scanInput = $("docScanInput");
+  const scanStatus = $("docScanStatus");
+  scanBtn.addEventListener("click", () => scanInput.click());
+  scanInput.addEventListener("change", () => {
+    const file = scanInput.files?.[0];
+    scanInput.value = "";
+    if (!file) return;
+    const next = SCAN_QUEUE.shift() || { id: `s${Date.now()}`, type: "visit_summary", title: file.name, provider: "Scanned document", date: today, highlights: ["No key details found — open the original to review"] };
+    const steps = ["Reading the document…", "Finding dates, amounts and names…", "Pulling out key details…"];
+    scanBtn.disabled = true;
+    scanStatus.hidden = false;
+    let i = 0;
+    const tick = () => {
+      if (i < steps.length) {
+        scanStatus.innerHTML = `<span class="scan-spinner" aria-hidden="true"></span>${esc(steps[i++])} <em>${esc(file.name)}</em>`;
+        setTimeout(tick, 700);
+        return;
+      }
+      next.isNew = true;
+      docs.unshift(next);
+      scanStatus.innerHTML = `✅ Added <strong>${esc(next.title)}</strong> — ${esc(TYPES[next.type].label.toLowerCase())}`;
+      scanBtn.disabled = false;
+      filter = "all";
+      renderAll();
+      setTimeout(() => { scanStatus.hidden = true; }, 4000);
+    };
+    tick();
+  });
+
+  function renderAll() {
+    renderOverview();
+    renderAttention();
+    renderFilters();
+    renderGrid();
+    document.dispatchEvent(new CustomEvent("ypia:update"));
+  }
+
+  // Shared with the Summary page
+  window.YPIA = window.YPIA || {};
+  window.YPIA.docs = {
+    list: docs,
+    types: TYPES,
+    attention: attentionItems,
+    markPaid(id, paid = true) {
+      const doc = docs.find((d) => d.id === id);
+      if (!doc) return;
+      doc.paid = paid ? new Date() : null;
+      renderAll();
+    }
+  };
+  renderAll();
+})();
+</script>
+<script>
+// ================= Care summary (pulls from every other page) =================
+(function () {
+  const $ = (id) => document.getElementById(id);
+  if (!$("reportTiles")) return;
+
+  const DAY = 24 * 60 * 60 * 1000;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const esc = (v) => { const d = document.createElement("div"); d.textContent = v ?? ""; return d.innerHTML; };
+  const money = (n) => `$${n.toFixed(2)}`;
+  const fmtDate = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const name = () => (document.getElementById("parent-name")?.textContent || "your parent").trim();
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const hasWellness = typeof loggedEntries === "function" && typeof moods !== "undefined";
+
+  // ---------- gather ----------
+  function wellnessData() {
+    if (!hasWellness) return null;
+    const entries = loggedEntries();
+    const status = computeStatus();
+    const streak = findLongestLowMoodStreak();
+    const recent = entries.slice(-7);
+    const earlier = entries.slice(-14, -7);
+    const avg = (arr) => arr.reduce((s, e) => s + e.moodIndex, 0) / (arr.length || 1);
+    let trend = "steady";
+    if (recent.length && earlier.length) {
+      const diff = avg(recent) - avg(earlier);        // higher index = lower mood
+      if (diff > 0.4) trend = "down"; else if (diff < -0.4) trend = "up";
+    }
+    const lowDays = recent.filter((e) => e.moodIndex >= LOW_MOOD_THRESHOLD).length;
+    return { entries, status, streak, recent, trend, lowDays };
+  }
+
+  function rxData() {
+    const rx = window.YPIA?.rx;
+    if (!rx) return null;
+    const doses = rx.todayDoses();
+    const count = (st) => doses.filter((d) => d.state === st).length;
+    const low = rx.meds.filter((m) => rx.refillLevel(m) === "low");
+    const monthlyCost = rx.meds.reduce((s, m) => s + (m.copay || 0) * (30 / m.supplyDays), 0); // copay is per fill
+    return { rx, doses, taken: count("taken"), missed: count("missed"), due: count("due"), total: doses.length, low, monthlyCost };
+  }
+
+  function docsData() {
+    const d = window.YPIA?.docs;
+    if (!d) return null;
+    const attention = d.attention().filter((a) => a.level !== "info");
+    const recent = d.list.slice().sort((a, b) => b.date - a.date).slice(0, 3);
+    const flaggedLabs = d.list.flatMap((doc) => (doc.labs || []).filter((l) => l.flag !== "ok").map((l) => ({ ...l, doc })));
+    const followUps = d.list.filter((doc) => doc.followUp).map((doc) => ({ ...doc.followUp, doc }));
+    return { d, attention, recent, flaggedLabs, followUps };
+  }
+
+  function paymentsData() {
+    const d = window.YPIA?.docs;
+    if (!d) return null;
+    const bills = d.list.filter((doc) => doc.type === "bill");
+    const open = bills.filter((b) => !b.paid).sort((a, b) => a.dueDate - b.dueDate);
+    const paid = bills.filter((b) => b.paid).sort((a, b) => b.paid - a.paid);
+    const owed = open.reduce((s, b) => s + b.amountDue, 0);
+    const overdue = open.filter((b) => b.dueDate < today);
+    const eobs = d.list.filter((doc) => doc.type === "eob");
+    const planPaid = eobs.reduce((s, e) => {
+      const row = (e.facts || []).find(([k]) => k === "Plan paid");
+      return s + (row ? parseFloat(row[1].replace(/[^0-9.]/g, "")) || 0 : 0);
+    }, 0);
+    return { open, paid, owed, overdue, eobs, planPaid };
+  }
+
+  // ---------- render ----------
+  function tile(view, icon, label, value, sub, level) {
+    return `<a class="report-tile report-tile--${level}" href="#${view}">
+      <span class="report-tile-icon" aria-hidden="true">${icon}</span>
+      <span class="report-tile-label">${label}</span>
+      <strong>${value}</strong>
+      <span class="report-tile-sub">${sub}</span>
+    </a>`;
+  }
+
+  function levelFromColor(c) { return c === "#ff6b6b" ? "bad" : c === "#ffd43b" ? "warn" : c === "#39d353" ? "good" : "none"; }
+
+  function render() {
+    const w = wellnessData(), r = rxData(), dc = docsData(), p = paymentsData();
+
+    $("careReportPeriod").textContent =
+      `Care summary · ${new Date(today.getTime() - 6 * DAY).toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${fmtDate(today)}`;
+
+    // tiles
+    $("reportTiles").innerHTML = [
+      w ? tile("dashboard", "🌤", "Wellness", esc(w.status.label), w.trend === "down" ? "Mood trending lower" : w.trend === "up" ? "Mood trending up" : "Mood steady", levelFromColor(w.status.color)) : "",
+      r ? tile("prescriptions", "💊", "Medications", `${r.taken}/${r.total} doses`, r.missed ? `${plural(r.missed, "missed dose")} today` : r.low.length ? `${r.low[0].name} refill due soon` : "All on track today", r.missed ? "bad" : r.low.length || r.due ? "warn" : "good") : "",
+      dc ? tile("documents", "📄", "Documents", `${dc.attention.length} to do`, dc.flaggedLabs.length ? `${plural(dc.flaggedLabs.length, "lab result")} flagged` : "Nothing flagged", dc.attention.length ? "warn" : "good") : "",
+      p ? tile("documents", "💵", "Payments", money(p.owed), p.overdue.length ? `${plural(p.overdue.length, "bill")} overdue` : p.open.length ? `Next due ${fmtDate(p.open[0].dueDate)}` : "All paid up", p.overdue.length ? "bad" : p.owed ? "warn" : "good") : ""
+    ].join("");
+
+    // wellness card
+    if (w) {
+      const strip = w.entries.slice(-14).map((e) =>
+        `<span class="mood-cell" style="background:${moods[e.moodIndex].color}" title="${esc(dayLabel(e.day))}: ${esc(moods[e.moodIndex].name)}"></span>`).join("");
+      $("reportWellness").innerHTML = `
+        <div class="report-card-head"><h2 class="tag">Wellness</h2><a href="#dashboard" class="report-link">Open tracker →</a></div>
+        <div class="status-explain"><span class="status-dot" style="background:${w.status.color}"></span><strong>${esc(w.status.label)}</strong></div>
+        <div class="mood-strip" aria-label="Last ${w.entries.slice(-14).length} logged days">${strip}</div>
+        <ul class="report-list">
+          <li>${plural(w.entries.length, "day")} logged this month · ${plural(w.lowDays, "low-mood day")} in the last week</li>
+          <li>${w.trend === "down" ? "Mood has trended lower than the week before" : w.trend === "up" ? "Mood has improved compared to the week before" : "Mood has been fairly steady"}</li>
+          <li>${w.streak.length >= 2 ? `Longest low stretch: ${w.streak.length} days (Day ${w.streak.start + 1}–${w.streak.end + 1})` : "No multi-day low stretches"}</li>
+        </ul>`;
+    }
+
+    // prescriptions card
+    if (r) {
+      $("reportRx").innerHTML = `
+        <div class="report-card-head"><h2 class="tag">Prescriptions</h2><a href="#prescriptions" class="report-link">Open →</a></div>
+        <div class="report-meter" aria-label="${r.taken} of ${r.total} doses taken today">
+          <span style="width:${r.total ? (r.taken / r.total) * 100 : 0}%"></span>
+        </div>
+        <p class="report-meter-label"><strong>${r.taken} of ${r.total}</strong> doses taken today${r.missed ? ` · <span class="txt-bad">${r.missed} missed</span>` : ""}${r.due ? ` · <span class="txt-warn">${r.due} due now</span>` : ""}</p>
+        <ul class="report-rows">
+          ${r.rx.meds.map((m) => {
+            const lvl = r.rx.refillLevel(m);
+            return `<li><span class="report-dot" style="background:${m.color}"></span><span class="grow"><strong>${esc(m.name)}</strong> ${esc(m.dose.replace(/ (tablet|softgel)$/, ""))} · ${esc(m.purpose)}</span>
+              <span class="pill pill--${lvl === "low" ? "bad" : lvl === "soon" ? "warn" : "ok"}">${m.daysLeft}d left</span></li>`;
+          }).join("")}
+        </ul>`;
+    }
+
+    // documents card
+    if (dc) {
+      $("reportDocs").innerHTML = `
+        <div class="report-card-head"><h2 class="tag">Documents</h2><a href="#documents" class="report-link">Open →</a></div>
+        <p><strong>${dc.d.list.length}</strong> documents · <strong>${dc.attention.length}</strong> need attention</p>
+        <ul class="report-rows">
+          ${dc.attention.slice(0, 4).map((a) => `<li><span aria-hidden="true">${a.icon}</span><span class="grow">${esc(a.text)}</span>${a.due ? `<span class="pill pill--${a.level === "high" ? "bad" : "warn"}">${fmtDate(a.due)}</span>` : ""}</li>`).join("")}
+        </ul>
+        <p class="report-sub">Latest: ${dc.recent.map((doc) => `${esc(doc.title)} (${fmtDate(doc.date)})`).join(" · ")}</p>`;
+    }
+
+    // payments card
+    if (p) {
+      $("reportPayments").innerHTML = `
+        <div class="report-card-head"><h2 class="tag">Payments</h2><a href="#documents" class="report-link">Bills →</a></div>
+        <div class="pay-summary">
+          <div><span>Owed now</span><strong class="${p.owed ? "txt-warn" : ""}">${money(p.owed)}</strong></div>
+          <div><span>Insurance paid</span><strong>${money(p.planPaid)}</strong></div>
+          <div><span>Rx copays / month</span><strong>${r ? money(r.monthlyCost) : "—"}</strong></div>
+        </div>
+        <ul class="report-rows pay-rows">
+          ${p.open.map((b) => `<li>
+              <span class="grow"><strong>${esc(b.provider)}</strong> ${money(b.amountDue)}<br><span class="report-sub">${b.dueDate < today ? `<span class="txt-bad">Overdue since ${fmtDate(b.dueDate)}</span>` : `Due ${fmtDate(b.dueDate)}`}</span></span>
+              <button type="button" class="btn btn--soft pay-btn" data-pay="${b.id}">Mark paid</button>
+            </li>`).join("")}
+          ${p.paid.map((b) => `<li class="is-paid">
+              <span class="grow"><strong>${esc(b.provider)}</strong> ${money(b.amountDue)}<br><span class="report-sub">Paid ${fmtDate(b.paid)}</span></span>
+              <button type="button" class="btn pay-undo" data-unpay="${b.id}" title="Undo">✓ Paid</button>
+            </li>`).join("")}
+          ${p.eobs.map((e) => `<li class="is-info"><span aria-hidden="true">📨</span><span class="grow">${esc(e.provider)} letter — <strong>not a bill</strong>, nothing owed</span></li>`).join("")}
+        </ul>`;
+      $("reportPayments").querySelectorAll("[data-pay]").forEach((b) => b.addEventListener("click", () => window.YPIA.docs.markPaid(b.dataset.pay, true)));
+      $("reportPayments").querySelectorAll("[data-unpay]").forEach((b) => b.addEventListener("click", () => window.YPIA.docs.markPaid(b.dataset.unpay, false)));
+    }
+
+    // talking points
+    const points = [];
+    if (w && w.trend === "down") points.push(`Mood has been lower this week (${plural(w.lowDays, "low day")} out of ${w.recent.length} logged).`);
+    if (w && w.streak.length >= 4) points.push(`A ${w.streak.length}-day stretch of low mood (Day ${w.streak.start + 1}–${w.streak.end + 1}).`);
+    if (r && r.missed) points.push(`Missed ${plural(r.missed, "dose")} today — ask whether the schedule is hard to keep up with.`);
+    dc?.flaggedLabs.forEach((l) => points.push(`${l.name} came back ${l.flag} at ${l.value} (normal ${l.range}) on ${fmtDate(l.doc.date)} — what should change?`));
+    dc?.followUps.filter((f) => !/lab|A1C/i.test(f.text)).forEach((f) => points.push(`${f.text} (from the ${f.doc.title}).`));
+    if (r) points.push(`Current medications: ${r.rx.meds.map((m) => `${m.name} ${m.dose.replace(/ (tablet|softgel)$/, "")}`).join(", ")}. Any changes needed?`);
+    $("reportTalkingPoints").innerHTML = points.map((t) => `<li>${esc(t)}</li>`).join("") || `<li>Nothing notable this week.</li>`;
+  }
+
+  // ---------- share ----------
+  function plainText() {
+    const lines = [`${name()}'s care summary — ${fmtDate(today)}`, ""];
+    document.querySelectorAll("#reportTiles .report-tile").forEach((t) => {
+      lines.push(`• ${t.querySelector(".report-tile-label").textContent}: ${t.querySelector("strong").textContent} (${t.querySelector(".report-tile-sub").textContent})`);
+    });
+    lines.push("", "Talking points for the doctor:");
+    document.querySelectorAll("#reportTalkingPoints li").forEach((li, i) => lines.push(`${i + 1}. ${li.textContent}`));
+    return lines.join("\n");
+  }
+
+  $("printReportBtn").addEventListener("click", () => window.print());
+  $("copyReportBtn").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    try {
+      await navigator.clipboard.writeText(plainText());
+      btn.textContent = "✓ Copied";
+    } catch {
+      btn.textContent = "Couldn't copy";
+    }
+    setTimeout(() => { btn.textContent = "📋 Copy text for family"; }, 2000);
+  });
+
+  document.addEventListener("ypia:update", render);
+  window.addEventListener("hashchange", () => { if (location.hash === "#summary") render(); });
+  render();
 })();
 </script>
 </body>
