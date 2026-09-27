@@ -12,14 +12,15 @@ export interface SaveDocumentExtractionInput {
   extractedData: NormalizedDocument;
 }
 
-export async function saveDocumentExtraction(input: SaveDocumentExtractionInput): Promise<void> {
+export async function saveDocumentExtraction(input: SaveDocumentExtractionInput): Promise<string> {
   const pool = getPool();
+  const id = randomUUID();
   await pool.query(
     `INSERT INTO documents
-       (id, parent_id, uploaded_by, document_name, document_type, storage_key, mime_type, file_size_bytes, extracted_data)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+       (id, parent_id, uploaded_by, document_name, document_type, storage_key, mime_type, file_size_bytes, extracted_data, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'needs_confirmation')`,
     [
-      randomUUID(),
+      id,
       input.parentId,
       input.uploadedBy,
       input.documentName,
@@ -30,6 +31,7 @@ export async function saveDocumentExtraction(input: SaveDocumentExtractionInput)
       input.extractedData,
     ]
   );
+  return id;
 }
 
 export interface ChangeSummary {
@@ -65,7 +67,7 @@ function isNormalizedDocumentShaped(value: unknown): value is NormalizedDocument
   );
 }
 
-function describeMedicationChange(change: MedicationChange): ChangeSummary | null {
+export function describeMedicationChange(change: MedicationChange): ChangeSummary | null {
   switch (change.type) {
     case "ADDED":
       return { type: "medication_started", summary: `${change.medicationName} was added` };
@@ -94,7 +96,7 @@ function describeMedicationChange(change: MedicationChange): ChangeSummary | nul
   }
 }
 
-function summarizeReconciliation(reconciliation: ReconciliationResult): ChangeSummary[] {
+export function summarizeReconciliation(reconciliation: ReconciliationResult): ChangeSummary[] {
   const changes: ChangeSummary[] = [];
 
   for (const change of reconciliation.medicationChanges) {
@@ -124,11 +126,13 @@ function summarizeReconciliation(reconciliation: ReconciliationResult): ChangeSu
 
 export async function getLatestChanges(parentId: string): Promise<LatestChangesResult> {
   const pool = getPool();
-  const result = await pool.query<{ extracted_data: unknown }>(
-    `SELECT extracted_data
+  // Only confirmed documents represent reviewed, user-verified care information —
+  // an unreviewed draft extraction must never appear in "what changed".
+  const result = await pool.query<{ reviewed_data: unknown }>(
+    `SELECT reviewed_data
      FROM documents
-     WHERE parent_id = $1 AND extracted_data IS NOT NULL
-     ORDER BY created_at DESC
+     WHERE parent_id = $1 AND status = 'confirmed' AND reviewed_data IS NOT NULL
+     ORDER BY reviewed_at DESC
      LIMIT 2`,
     [parentId]
   );
@@ -139,12 +143,12 @@ export async function getLatestChanges(parentId: string): Promise<LatestChangesR
   }
 
   const [newer, older] = rows;
-  if (!isNormalizedDocumentShaped(newer.extracted_data) || !isNormalizedDocumentShaped(older.extracted_data)) {
+  if (!isNormalizedDocumentShaped(newer.reviewed_data) || !isNormalizedDocumentShaped(older.reviewed_data)) {
     return { status: "malformed_history", changes: [], documentCount: rows.length };
   }
 
-  const previousState = documentToCareState(older.extracted_data);
-  const reconciliation = reconcileCareState(previousState, newer.extracted_data);
+  const previousState = documentToCareState(older.reviewed_data);
+  const reconciliation = reconcileCareState(previousState, newer.reviewed_data);
   const changes = summarizeReconciliation(reconciliation);
 
   return {

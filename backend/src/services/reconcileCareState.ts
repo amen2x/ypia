@@ -30,7 +30,7 @@ function hasValue(value: string | null): value is string {
   return normalizeText(value) !== null;
 }
 
-function medicationsMatch(
+export function medicationsMatch(
   current: NormalizedMedication,
   incoming: NormalizedMedication,
 ): boolean {
@@ -46,7 +46,7 @@ function medicationsMatch(
   return currentName !== null && currentName === incomingName;
 }
 
-function findMatchingMedication(
+export function findMatchingMedication(
   medications: NormalizedMedication[],
   incoming: NormalizedMedication,
 ): NormalizedMedication | undefined {
@@ -105,7 +105,7 @@ function cloneFollowUp(followUp: FollowUp): FollowUp {
   return { ...followUp };
 }
 
-function appointmentsMatch(current: Appointment, incoming: Appointment): boolean {
+export function appointmentsMatch(current: Appointment, incoming: Appointment): boolean {
   const identifyingFields: Array<keyof Appointment> = ["type", "provider", "date", "time"];
   const fields: Array<keyof Appointment> = [...identifyingFields, "location"];
   let matchingFields = 0;

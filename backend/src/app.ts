@@ -15,6 +15,13 @@ import {
 } from "./services/parentInfo.js";
 import { saveDocumentExtraction, getLatestChanges } from "./services/documentHistory.js";
 import {
+  buildReviewPayload,
+  confirmDocument,
+  DocumentAccessError,
+  DocumentNotConfirmableError,
+  DocumentValidationError,
+} from "./services/documentConfirmation.js";
+import {
   createCaregiverAction,
   listCaregiverActions,
   updateActionStatus,
@@ -32,6 +39,7 @@ import { DatabaseConfigurationError, getPool } from "./db.js";
 import { scoreUnreviewedSchedule } from "./services/schedulePoints.js";
 import { signupSchema, loginSchema, backgroundNotesSchema } from "./schemas.js";
 import { gameRoutes } from "./gameRoutes.js";
+import { calendarRoutes } from "./calendarRoutes.js";
 
 const MAX_ACTION_TEXT_LENGTH = 500;
 
@@ -146,6 +154,7 @@ export function createApp() {
   const app = express();
   app.use(cors({ origin: ALLOWED_ORIGINS }));
   app.use(express.json());
+  app.use("/api/calendar", calendarRoutes);
 
   app.get("/api/health", (_request, response) => {
     response.json({ status: "ok" });
@@ -252,10 +261,11 @@ export function createApp() {
 
     try {
       const extracted = await processUpload(request.file);
+      let documentId: string | null = null;
 
       if (userId && parentId) {
         try {
-          await saveDocumentExtraction({
+          documentId = await saveDocumentExtraction({
             parentId,
             uploadedBy: userId,
             documentName: request.file.originalname,
@@ -270,9 +280,51 @@ export function createApp() {
         }
       }
 
-      response.json(extracted);
+      // The caregiver upload remains a read-only extraction without a parent draft.
+      if (!documentId) {
+        response.json(extracted);
+        return;
+      }
+
+      response.json({
+        documentId,
+        status: "needs_confirmation",
+        review: buildReviewPayload(extracted),
+      });
     } catch (error: unknown) {
-      next(error);
+      console.error("Document extraction failed");
+      response.status(400).json({ error: "We couldn't process this document. Try another PDF or image." });
+    }
+  });
+
+  app.post("/api/documents/:id/confirm", async (request, response) => {
+    const documentId = request.params.id;
+    const body = request.body as Record<string, unknown> | undefined;
+    const userId = parseUserId(body?.userId);
+
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+
+    try {
+      const result = await confirmDocument({ documentId, userId, editedData: body?.editedData });
+      response.json(result);
+    } catch (error: unknown) {
+      if (error instanceof DocumentAccessError) {
+        response.status(404).json({ error: "Document not found" });
+        return;
+      }
+      if (error instanceof DocumentValidationError) {
+        response.status(400).json({ error: "We couldn't save your corrections. Please check the fields and try again." });
+        return;
+      }
+      if (error instanceof DocumentNotConfirmableError) {
+        response.status(409).json({ error: error.message });
+        return;
+      }
+      console.error("Failed to confirm document");
+      response.status(500).json({ error: "We couldn't save this information. Please try again." });
     }
   });
 

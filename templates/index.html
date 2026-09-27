@@ -49,10 +49,10 @@
           <img src="/static/images/elders.jpeg" alt="Older couple smiling together">
         </figure>
         <figure class="hero-slide" aria-roledescription="slide" aria-label="2 of 3" aria-hidden="true" style="--focus: 50% 22%">
-          <img src="/static/images/elders2.jpeg" alt="Grandmother laughing with family" loading="lazy">
+          <img src="/static/images/multielders.jpg" alt="Grandmother laughing with family" loading="lazy">
         </figure>
         <figure class="hero-slide" aria-roledescription="slide" aria-label="3 of 3" aria-hidden="true" style="--focus: 50% 22%">
-          <img src="/static/images/elders3.jpeg" alt="Older man gardening outdoors" loading="lazy">
+          <img src="/static/images/oldppl.jpg" alt="Older friends laughing together outdoors" loading="lazy">
         </figure>
       </div>
       <div class="hero-shade" aria-hidden="true"></div>
@@ -1289,7 +1289,16 @@ function completeItem(item) {
         if (!e.target.matches('.cal-btn')) return;
         const item = e.target.closest('.action-item');
         const text = item.querySelector('label').textContent;
-        const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(text);
+        const date = item.dataset.date;
+        if (!date || date === "undefined") {
+            alert("Please choose a date before adding this item to Google Calendar.");
+            return;
+        }
+        // Items with a date but no explicit time are exported as all-day events.
+        const params = new URLSearchParams({ title: text, date });
+        if (item.dataset.time) params.set("time", item.dataset.time);
+        if (item.dataset.endTime) params.set("endTime", item.dataset.endTime);
+        const url = `${CAREGIVER_API_BASE}/api/calendar/template?${params}`;
         window.open(url, '_blank');
     });
  

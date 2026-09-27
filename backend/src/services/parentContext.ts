@@ -1,9 +1,11 @@
 import { getPool } from "../db.js";
+import { getActiveMemories, type ActiveMemory } from "./memoryReview.js";
 
 export interface ParentBackground {
   status: "ok" | "none";
   name: string;
   background: string | null;
+  memories: ActiveMemory[];
 }
 
 export async function getParentBackground(parentId: string): Promise<ParentBackground | null> {
@@ -19,10 +21,13 @@ export async function getParentBackground(parentId: string): Promise<ParentBackg
   }
 
   const background = row.background_notes?.trim() || null;
+  const memories = await getActiveMemories(parentId);
+
   return {
-    status: background ? "ok" : "none",
+    status: background || memories.length > 0 ? "ok" : "none",
     name: row.full_name,
     background,
+    memories,
   };
 }
 
