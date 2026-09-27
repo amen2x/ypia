@@ -7,6 +7,7 @@ import multer from "multer";
 import { extractDocument } from "./services/documentExtractor.js";
 import { normalizeMedications } from "./services/normalizeMedications.js";
 import { createAccount, verifyLogin, AuthError } from "./services/auth.js";
+import { getParentIdForUser, getNextAppointment, getCurrentMedications } from "./services/parentInfo.js";
 import { DatabaseConfigurationError } from "./db.js";
 import { signupSchema, loginSchema } from "./schemas.js";
 
@@ -41,6 +42,10 @@ function errorHandler(error: unknown, _request: Request, response: Response, _ne
   response.status(400).json({ error: message });
 }
 
+function parseUserId(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
 export function createApp() {
   const app = express();
   app.use(cors({ origin: ALLOWED_ORIGINS }));
@@ -48,6 +53,82 @@ export function createApp() {
 
   app.get("/api/health", (_request, response) => {
     response.json({ status: "ok" });
+  });
+
+  app.get("/api/elevenlabs/signed-url", async (_request, response) => {
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    const agentId = process.env.ELEVENLABS_AGENT_ID;
+
+    if (!apiKey || !agentId) {
+      response.status(500).json({ error: "ElevenLabs is not configured" });
+      return;
+    }
+
+    try {
+      const elevenLabsResponse = await fetch(
+        `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${encodeURIComponent(agentId)}`,
+        { headers: { "xi-api-key": apiKey } }
+      );
+
+      if (!elevenLabsResponse.ok) {
+        response.status(502).json({ error: "Could not start a voice session" });
+        return;
+      }
+
+      const body = (await elevenLabsResponse.json()) as { signed_url?: string };
+      if (!body.signed_url) {
+        response.status(502).json({ error: "Could not start a voice session" });
+        return;
+      }
+
+      response.json({ signedUrl: body.signed_url });
+    } catch {
+      response.status(502).json({ error: "Could not start a voice session" });
+    }
+  });
+
+  app.get("/api/parent/next-appointment", async (request, response) => {
+    const userId = parseUserId(request.query.userId);
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+
+    try {
+      const parentId = await getParentIdForUser(userId);
+      if (!parentId) {
+        response.status(404).json({ error: "No parent profile found for this user" });
+        return;
+      }
+
+      const appointment = await getNextAppointment(parentId);
+      response.json({ appointment });
+    } catch (error: unknown) {
+      console.error("Failed to load next appointment", error);
+      response.status(500).json({ error: "Unable to load appointment information" });
+    }
+  });
+
+  app.get("/api/parent/current-medications", async (request, response) => {
+    const userId = parseUserId(request.query.userId);
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+
+    try {
+      const parentId = await getParentIdForUser(userId);
+      if (!parentId) {
+        response.status(404).json({ error: "No parent profile found for this user" });
+        return;
+      }
+
+      const medications = await getCurrentMedications(parentId);
+      response.json({ medications });
+    } catch (error: unknown) {
+      console.error("Failed to load current medications", error);
+      response.status(500).json({ error: "Unable to load medication information" });
+    }
   });
 
   app.post("/api/documents", upload.single("document"), async (request, response, next) => {

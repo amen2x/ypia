@@ -1,21 +1,226 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Parent Home | Y.P.I.A</title>
-    <style>
-        body {
-            background: #2e7d32;
-            color: #fff;
-            font-family: sans-serif;
-            text-align: center;
-            padding-top: 15%;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parent Home | Y.P.I.A</title>
+<style>
+  :root { --ypia-green: #2e7d32; --ypia-green-dark: #1f5723; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--ypia-green);
+    color: #fff;
+    font-family: system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 2rem 1rem;
+    text-align: center;
+  }
+  .brand { font-size: 1.5rem; font-weight: 800; letter-spacing: 0.05em; margin: 0; }
+  .greeting { font-size: 2rem; margin: 0; }
+  .prompt { font-size: 1.25rem; margin: 0 0 0.75rem; opacity: 0.9; }
+  #voiceButton {
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    border: none;
+    background: #fff;
+    color: var(--ypia-green-dark);
+    font-size: 4rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  }
+  #voiceButton:active { transform: scale(0.97); }
+  #voiceStatus { font-size: 1.1rem; margin: 0.25rem 0 1.5rem; }
+  #uploadButton {
+    font-size: 1.15rem;
+    padding: 1rem 1.75rem;
+    border-radius: 999px;
+    border: 2px solid #fff;
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+    max-width: 90vw;
+  }
+  .upload-hint { font-size: 0.9rem; opacity: 0.85; margin: 0.4rem 0 0; }
+  .logout {
+    margin-top: 2.5rem;
+    font-size: 0.85rem;
+    color: #fff;
+    background: none;
+    border: none;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+</style>
 </head>
 <body>
-    <h1>Y.P.I.A</h1>
-    <h2>Parent Home</h2>
-    <p>Welcome</p>
+  <h1 class="brand">Y.P.I.A</h1>
+  <h2 class="greeting" id="greeting">Hi</h2>
+  <p class="prompt">What can I help you with?</p>
+
+  <button id="voiceButton" aria-label="Start voice conversation">🎤</button>
+  <p id="voiceStatus">Tap to talk</p>
+
+  <button id="uploadButton" aria-label="Add a medical document: photo or PDF">＋ Add medical document</button>
+  <p class="upload-hint">Photo / Image / PDF</p>
+
+  <button class="logout" id="logoutButton">Log out</button>
+
+  <script>
+    const user = JSON.parse(localStorage.getItem("ypia_user") || "null");
+    if (!user) {
+      window.location.replace("/login");
+    } else if (user.role !== "parent") {
+      window.location.replace("/");
+    } else {
+      const firstName = (user.fullName || "").trim().split(" ")[0] || "there";
+      document.getElementById("greeting").textContent = `Hi, ${firstName}`;
+    }
+
+    document.getElementById("uploadButton").addEventListener("click", () => {
+      alert("Document upload is coming soon.");
+    });
+
+    document.getElementById("logoutButton").addEventListener("click", () => {
+      localStorage.removeItem("ypia_user");
+      window.location.href = "/login";
+    });
+  </script>
+
+  <script type="module">
+    import { Conversation } from "https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.25.0/+esm";
+
+    const voiceButton = document.getElementById("voiceButton");
+    const voiceStatus = document.getElementById("voiceStatus");
+    let conversation = null;
+
+    function setStatus(text) {
+      voiceStatus.textContent = text;
+    }
+
+    function reset() {
+      conversation = null;
+      voiceButton.disabled = false;
+      setStatus("Tap to talk");
+    }
+
+    async function startConversation() {
+      voiceButton.disabled = true;
+      setStatus("Connecting...");
+
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch {
+        voiceButton.disabled = false;
+        setStatus("Microphone access denied");
+        return;
+      }
+
+      try {
+        const response = await fetch("http://localhost:3000/api/elevenlabs/signed-url");
+        if (!response.ok) throw new Error("signed-url request failed");
+        const { signedUrl } = await response.json();
+
+        const user = JSON.parse(localStorage.getItem("ypia_user") || "null");
+
+        conversation = await Conversation.startSession({
+          signedUrl,
+          dynamicVariables: {
+            user_id: user?.id ?? "",
+            parent_name: user?.fullName ?? "",
+          },
+          clientTools: {
+            get_next_appointment: async () => {
+              if (!user?.id) {
+                return { status: "error", message: "No logged-in parent found." };
+              }
+
+              try {
+                const apiResponse = await fetch(
+                  `http://localhost:3000/api/parent/next-appointment?userId=${encodeURIComponent(user.id)}`
+                );
+                if (!apiResponse.ok) {
+                  return { status: "error", message: "Could not retrieve appointment information right now." };
+                }
+
+                const data = await apiResponse.json();
+                if (!data.appointment) {
+                  return { status: "none", message: "No upcoming appointment is currently recorded." };
+                }
+
+                return { status: "ok", appointment: data.appointment };
+              } catch {
+                return { status: "error", message: "Could not retrieve appointment information right now." };
+              }
+            },
+            get_current_medications: async () => {
+              if (!user?.id) {
+                return { status: "error", message: "No logged-in parent found." };
+              }
+
+              try {
+                const apiResponse = await fetch(
+                  `http://localhost:3000/api/parent/current-medications?userId=${encodeURIComponent(user.id)}`
+                );
+                if (!apiResponse.ok) {
+                  return { status: "error", message: "Could not retrieve medication information right now." };
+                }
+
+                const data = await apiResponse.json();
+                if (!data.medications || data.medications.length === 0) {
+                  return { status: "none", message: "No active medications are currently recorded." };
+                }
+
+                return { status: "ok", medications: data.medications };
+              } catch {
+                return { status: "error", message: "Could not retrieve medication information right now." };
+              }
+            },
+          },
+          onDisconnect: reset,
+          onModeChange: ({ mode }) => setStatus(mode === "speaking" ? "Speaking..." : "Listening..."),
+          onError: () => {
+            voiceButton.disabled = false;
+            setStatus("Connection failed. Tap to retry.");
+            conversation = null;
+          },
+        });
+
+        voiceButton.disabled = false;
+        setStatus("Listening...");
+      } catch {
+        voiceButton.disabled = false;
+        setStatus("Connection failed. Tap to retry.");
+        conversation = null;
+      }
+    }
+
+    async function endConversation() {
+      voiceButton.disabled = true;
+      try {
+        await conversation?.endSession();
+      } finally {
+        reset();
+      }
+    }
+
+    voiceButton.addEventListener("click", () => {
+      if (conversation) {
+        endConversation();
+      } else {
+        startConversation();
+      }
+    });
+  </script>
 </body>
 </html>
