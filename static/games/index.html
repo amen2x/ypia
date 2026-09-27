@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Games | Y.P.I.A</title>
+  <link rel="stylesheet" href="games.css">
+</head>
+<body>
+  <main class="page">
+    <div class="topbar">
+      <span class="brand">Y.P.I.A</span>
+      <a href="/parent">Back to home</a>
+    </div>
+
+    <div id="app" class="card">
+      <h1 id="hello">Pick a game</h1>
+      <p class="muted">Play one a day to help your garden grow.</p>
+
+      <div class="game-list">
+        <a class="game-link" href="trivia.html">
+          <span class="icon" aria-hidden="true">💡</span>
+          <span><span class="name">Trivia</span><span class="about">10 questions about things you love</span></span>
+        </a>
+        <a class="game-link" href="sudoku.html">
+          <span class="icon" aria-hidden="true">🔢</span>
+          <span><span class="name">Sudoku</span><span class="about">An easy number puzzle</span></span>
+        </a>
+        <a class="game-link" href="solitaire.html">
+          <span class="icon" aria-hidden="true">🃏</span>
+          <span><span class="name">Solitaire</span><span class="about">The classic card game</span></span>
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <script src="common.js"></script>
+  <script>
+    const player = Games.requirePlayer(document.getElementById("app"));
+    if (player) document.getElementById("hello").textContent = `Hi, ${player.firstName}! Pick a game`;
+  </script>
+</body>
+</html>
