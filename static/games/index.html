@@ -37,7 +37,11 @@
   <script src="common.js"></script>
   <script>
     const player = Games.requirePlayer(document.getElementById("app"));
-    if (player) document.getElementById("hello").textContent = `Hi, ${player.firstName}! Pick a game`;
+    if (player) {
+      document.getElementById("hello").textContent = `Hi, ${player.firstName}! Pick a game`;
+      // Let Gemini start on today's trivia questions while she picks a game.
+      Games.api("/api/trivia/prepare", { userId: player.id }).catch(() => {});
+    }
   </script>
 </body>
 </html>
