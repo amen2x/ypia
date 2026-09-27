@@ -48,8 +48,8 @@ export async function createAccount(input: SignupInput): Promise<{ userId: strin
         throw new AuthError("parentEmail is required for a child account");
       }
 
-      const parentLookup = await client.query(
-        `SELECT p.id
+      const parentLookup = await client.query<{ id: string; user_id: string }>(
+        `SELECT p.id, p.user_id
          FROM parents p
          JOIN users u ON u.id = p.user_id
          WHERE u.email = $1`,
@@ -109,18 +109,24 @@ export async function verifyLogin(
 
   // Auto-approve on login: if this account has a pending link to a parent,
   // logging in successfully is treated as confirmation and flips it to approved.
-  const relationshipRow = await pool.query<{ parent_id: string; status: string }>(
-    "SELECT parent_id, status FROM parent_relationships WHERE user_id = $1 LIMIT 1",
-    [user.id]
-  );
+    const relationshipRow = await pool.query<{ parent_id: string; parent_user_id: string; status: string }>(
+      `SELECT pr.parent_id, p.user_id AS parent_user_id, pr.status
+       FROM parent_relationships pr
+       JOIN parents p ON p.id = pr.parent_id
+       WHERE pr.user_id = $1
+       LIMIT 1`,
+      [user.id]
+    );
 
   if (relationshipRow.rows.length > 0) {
-    const { parent_id: parentId, status } = relationshipRow.rows[0];
+    const { parent_id: parentId, parent_user_id: parentUserId, status } = relationshipRow.rows[0];
 
     if (status === "pending") {
       await pool.query(
-        "UPDATE parent_relationships SET status = 'approved' WHERE user_id = $1 AND parent_id = $2",
-        [user.id, parentId]
+        `UPDATE parent_relationships
+         SET status = 'approved', approved_by = $2, approved_at = NOW()
+         WHERE user_id = $1 AND parent_id = $3`,
+        [user.id, parentUserId, parentId]
       );
     }
 

@@ -7,14 +7,9 @@ import multer from "multer";
 import { extractDocument } from "./services/documentExtractor.js";
 import { normalizeMedications } from "./services/normalizeMedications.js";
 import { createAccount, verifyLogin, AuthError } from "./services/auth.js";
-<<<<<<< Updated upstream
 import { getParentIdForUser, getNextAppointment, getCurrentMedications } from "./services/parentInfo.js";
-import { DatabaseConfigurationError } from "./db.js";
-import { signupSchema, loginSchema } from "./schemas.js";
-=======
 import { DatabaseConfigurationError, getPool } from "./db.js";
 import { signupSchema, loginSchema, backgroundNotesSchema } from "./schemas.js";
->>>>>>> Stashed changes
 
 const upload = multer({ storage: multer.memoryStorage() });
 const backgroundUpload = multer({
@@ -273,7 +268,11 @@ export function createApp() {
         const { parent_id: parentId, status } = relResult.rows[0];
         if (status === "pending") {
           await pool.query(
-            `UPDATE parent_relationships SET status = 'approved' WHERE user_id = $1 AND parent_id = $2`,
+            `UPDATE parent_relationships
+             SET status = 'approved',
+                 approved_by = (SELECT user_id FROM parents WHERE id = $2),
+                 approved_at = NOW()
+             WHERE user_id = $1 AND parent_id = $2`,
             [request.params.id, parentId]
           );
         }
@@ -370,6 +369,44 @@ export function createApp() {
       }
     }
   );
+
+  // Fetch upcoming schedule events for a parent.
+  app.get("/api/parents/:id/schedule", async (request, response, next) => {
+    try {
+      const result = await getPool().query(
+        `SELECT id, title, description, category, start_time, end_time,
+                location, address, with_whom, status
+         FROM schedule
+         WHERE parent_id = $1
+           AND start_time >= NOW()
+         ORDER BY start_time ASC
+         LIMIT 50`,
+        [request.params.id]
+      );
+      response.json(result.rows);
+    } catch (error: unknown) {
+      next(error);
+    }
+  });
+
+  // Fetch past schedule events for a parent.
+  app.get("/api/parents/:id/schedule/past", async (request, response, next) => {
+    try {
+      const result = await getPool().query(
+        `SELECT id, title, description, category, start_time, end_time,
+                location, address, with_whom, status
+         FROM schedule
+         WHERE parent_id = $1
+           AND start_time < NOW()
+         ORDER BY start_time DESC
+         LIMIT 20`,
+        [request.params.id]
+      );
+      response.json(result.rows);
+    } catch (error: unknown) {
+      next(error);
+    }
+  });
 
   app.use(errorHandler);
   return app;
