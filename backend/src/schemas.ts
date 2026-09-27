@@ -25,14 +25,8 @@ export const followUpSchema = z.object({
 });
 
 export const extractedDocumentSchema = z.object({
-  documentType: z.enum([
-    "prescription",
-    "after_visit_summary",
-    "discharge_summary",
-    "appointment",
-    "lab",
-    "other"
-  ]),
+  // Must match the documents_document_type_check constraint in the database exactly.
+  documentType: z.enum(["prescription", "after_visit_summary", "appointment_letter", "lab_result", "other"]),
   medications: z.array(medicationSchema),
   appointments: z.array(appointmentSchema),
   followUps: z.array(followUpSchema),

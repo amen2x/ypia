@@ -1,4 +1,5 @@
 import { getPool } from "../db.js";
+import { reviewConversationMemory } from "./memoryReview.js";
 
 export async function registerVoiceConversation(parentId: string, conversationId: string): Promise<void> {
   const pool = getPool();
@@ -80,7 +81,10 @@ export async function syncVoiceConversation(
       return "unavailable";
     }
 
-    if (details.status === "done" || details.transcript) {
+    // Only "done" is authoritative. An empty (but truthy) transcript array can
+    // arrive on an early poll before ElevenLabs finishes processing the call,
+    // so a mere non-null transcript is not sufficient to stop retrying.
+    if (details.status === "done") {
       break;
     }
 
@@ -123,5 +127,15 @@ export async function syncVoiceConversation(
     ]
   );
 
-  return details.status === "done" ? "synced" : "pending";
+  if (details.status === "done") {
+    // Fire-and-forget: memory review runs after the transcript is safely
+    // persisted, and is independently retryable/idempotent, so it must never
+    // block or risk the sync response itself.
+    reviewConversationMemory(parentId, conversationId).catch(() => {
+      console.error("Memory review failed to run");
+    });
+    return "synced";
+  }
+
+  return "pending";
 }

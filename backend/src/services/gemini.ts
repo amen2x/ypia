@@ -26,7 +26,7 @@ const extractedDocumentJsonSchema = {
   properties: {
     documentType: {
       type: "string",
-      enum: ["prescription", "after_visit_summary", "discharge_summary", "appointment", "lab", "other"]
+      enum: ["prescription", "after_visit_summary", "appointment_letter", "lab_result", "other"]
     },
     medications: {
       type: "array",

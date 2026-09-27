@@ -25,8 +25,10 @@ export async function listSharedDocuments(parentIds: string[]): Promise<SharedDo
     extracted_data: unknown;
     parent_name: string;
   }>(
+    // Once a document is confirmed, the user-reviewed values are what a caregiver
+    // should see — not the original, possibly-corrected AI draft.
     `SELECT d.id, d.document_name, d.document_type, d.mime_type, d.created_at,
-            d.extracted_data, p.full_name AS parent_name
+            COALESCE(d.reviewed_data, d.extracted_data) AS extracted_data, p.full_name AS parent_name
      FROM documents d
      JOIN parents p ON p.id = d.parent_id
      WHERE d.parent_id = ANY($1::text[])

@@ -348,6 +348,200 @@ a:focus-visible {
   color: var(--ypia-error);
 }
 
+/* ---------- Document review / confirm ---------- */
+
+.review-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(23, 63, 35, 0.35);
+  z-index: 25;
+}
+
+.review-overlay[hidden] {
+  display: none !important;
+}
+
+.review-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(30rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  background: var(--ypia-warm-white);
+  border-radius: var(--ypia-radius);
+  box-shadow: var(--ypia-shadow);
+  padding: 1.5rem;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.review-panel[hidden] {
+  display: none !important;
+}
+
+.review-title {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--ypia-forest);
+}
+
+.review-subtitle {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ypia-muted-text);
+}
+
+.review-empty-note {
+  margin: 0;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  background: var(--ypia-muted-green);
+  color: var(--ypia-forest);
+  font-size: 0.9rem;
+}
+
+.review-error {
+  margin: 0;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  background: #f6dede;
+  color: var(--ypia-error);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.review-error[hidden] {
+  display: none !important;
+}
+
+.review-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.review-section-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  color: var(--ypia-forest);
+  border-bottom: 1px solid var(--ypia-line);
+  padding-bottom: 0.35rem;
+}
+
+.review-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--ypia-line);
+}
+
+.review-item:last-child {
+  border-bottom: none;
+}
+
+.review-item-text {
+  min-width: 0;
+}
+
+.review-item-primary {
+  margin: 0;
+  font-weight: 600;
+  color: var(--ypia-forest);
+}
+
+.review-item-secondary {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: var(--ypia-muted-text);
+}
+
+.review-item-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  padding-top: 0.1rem;
+}
+
+.review-link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ypia-green);
+  cursor: pointer;
+  min-height: 32px;
+}
+
+.review-link-remove {
+  color: var(--ypia-error);
+}
+
+.review-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.review-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--ypia-muted-text);
+}
+
+.review-input {
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--ypia-line);
+  background: var(--ypia-cream);
+  color: var(--ypia-forest);
+}
+
+.review-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--ypia-line);
+}
+
+.review-button {
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0.6rem 1.25rem;
+  min-height: 44px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+}
+
+.review-button-secondary {
+  background: transparent;
+  color: var(--ypia-muted-text);
+  border: 1px solid var(--ypia-line);
+}
+
+.review-button-primary {
+  background: var(--ypia-green);
+  color: var(--ypia-warm-white);
+}
+
+.review-button-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* ---------- Games link ---------- */
 
 .games-link {
@@ -395,5 +589,23 @@ a:focus-visible {
 
   .upload-card {
     padding: 1rem;
+  }
+
+  .review-panel {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    transform: none;
+    width: 100%;
+    max-height: 85vh;
+    border-radius: var(--ypia-radius) var(--ypia-radius) 0 0;
+  }
+
+  .review-actions {
+    flex-direction: column-reverse;
+  }
+
+  .review-button {
+    width: 100%;
   }
 }

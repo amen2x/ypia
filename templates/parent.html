@@ -52,6 +52,28 @@
     <a href="/static/games/index.html" class="games-link">🎲 Play games</a>
   </main>
 
+  <div id="reviewOverlay" class="review-overlay" hidden></div>
+  <section id="reviewPanel" class="review-panel" hidden role="dialog" aria-modal="true" aria-label="Review document information">
+    <h2 class="review-title">Does this look correct?</h2>
+    <p id="reviewSubtitle" class="review-subtitle"></p>
+    <p id="reviewEmptyNote" class="review-empty-note" hidden>We couldn't confidently identify any care information in this document.</p>
+    <div id="reviewSections" class="review-sections"></div>
+    <p id="reviewError" class="review-error" hidden></p>
+    <div class="review-actions">
+      <button id="reviewCancelButton" type="button" class="review-button review-button-secondary">Cancel</button>
+      <button id="reviewConfirmButton" type="button" class="review-button review-button-primary">Confirm &amp; Add to Y.P.I.A</button>
+    </div>
+  </section>
+
+  <div id="successOverlay" class="review-overlay" hidden></div>
+  <section id="successPanel" class="review-panel" hidden role="dialog" aria-modal="true" aria-label="Document added">
+    <h2 class="review-title" id="successTitle">Added to your care information.</h2>
+    <div id="successChanges" class="review-sections"></div>
+    <div class="review-actions">
+      <button id="successCloseButton" type="button" class="review-button review-button-primary">Done</button>
+    </div>
+  </section>
+
   <script>
     const user = JSON.parse(localStorage.getItem("ypia_user") || "null");
     if (!user) {
@@ -154,7 +176,7 @@
       const file = uploadInput.files?.[0];
       if (!file || !user?.id) return;
 
-      showUploadToast("Uploading...", false);
+      showUploadToast("Reading document...", false);
       const formData = new FormData();
       formData.append("document", file);
       formData.append("userId", user.id);
@@ -164,21 +186,323 @@
           method: "POST",
           body: formData,
         });
-        if (response.ok) {
-          showUploadToast("✓ Document added and shared with your caregiver", false);
-        } else {
-          showUploadToast("Could not process that document. Please try again.", true);
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          showUploadToast((data && data.error) || "We couldn't process this document. Try another PDF or image.", true);
+          return;
         }
+
+        if (!data.documentId) {
+          showUploadToast("We couldn't process this document. Try another PDF or image.", true);
+          return;
+        }
+
+        uploadToast.hidden = true;
+        openReview(data.documentId, data.review);
       } catch {
         showUploadToast("Something went wrong. Please try again.", true);
       } finally {
         uploadInput.value = "";
       }
     });
+
+    // ---- Document review / confirm ----
+
+    const MEDICATION_STATUS_OPTIONS = [
+      { value: "started", label: "Newly started" },
+      { value: "active", label: "Currently active" },
+      { value: "changed", label: "Dose or frequency changed" },
+      { value: "stopped", label: "Discontinued" },
+      { value: "unknown", label: "Not specified in document" },
+    ];
+
+    const REVIEW_SECTIONS = [
+      {
+        key: "medications",
+        title: "Medications",
+        fields: [
+          { name: "name", label: "Medication" },
+          { name: "dose", label: "Dose" },
+          { name: "frequency", label: "Frequency" },
+          { name: "status", label: "Status", type: "select", options: MEDICATION_STATUS_OPTIONS },
+        ],
+        summary: (item) => {
+          const statusLabel = MEDICATION_STATUS_OPTIONS.find((o) => o.value === item.status)?.label || item.status;
+          const parts = [item.dose, item.frequency].filter(Boolean).join(", ");
+          return { primary: item.name || "(unnamed medication)", secondary: [parts, statusLabel].filter(Boolean).join(" · ") };
+        },
+        empty: () => ({ name: "", dose: "", frequency: "", status: "unknown" }),
+      },
+      {
+        key: "appointments",
+        title: "Appointments / Follow-up",
+        fields: [
+          { name: "type", label: "Type" },
+          { name: "provider", label: "Provider" },
+          { name: "date", label: "Date" },
+          { name: "time", label: "Time" },
+          { name: "location", label: "Location" },
+        ],
+        summary: (item) => ({
+          primary: [item.type || "Appointment", item.provider ? `with ${item.provider}` : ""].filter(Boolean).join(" "),
+          secondary: [item.date, item.time, item.location].filter(Boolean).join(" · "),
+        }),
+        empty: () => ({ type: "", provider: "", date: "", time: "", location: "" }),
+      },
+      {
+        key: "followUps",
+        title: "Other Instructions",
+        fields: [
+          { name: "description", label: "Description" },
+          { name: "timeframe", label: "Timeframe" },
+        ],
+        summary: (item) => ({ primary: item.description || "(no description)", secondary: item.timeframe || "" }),
+        empty: () => ({ description: "", timeframe: "" }),
+      },
+    ];
+
+    let draft = null; // { documentId, documentTypeLabel, medications:[], appointments:[], followUps:[], instructions:[] }
+
+    const reviewOverlay = document.getElementById("reviewOverlay");
+    const reviewPanel = document.getElementById("reviewPanel");
+    const reviewSubtitle = document.getElementById("reviewSubtitle");
+    const reviewEmptyNote = document.getElementById("reviewEmptyNote");
+    const reviewSections = document.getElementById("reviewSections");
+    const reviewError = document.getElementById("reviewError");
+    const reviewCancelButton = document.getElementById("reviewCancelButton");
+    const reviewConfirmButton = document.getElementById("reviewConfirmButton");
+
+    const successOverlay = document.getElementById("successOverlay");
+    const successPanel = document.getElementById("successPanel");
+    const successTitle = document.getElementById("successTitle");
+    const successChanges = document.getElementById("successChanges");
+    const successCloseButton = document.getElementById("successCloseButton");
+
+    function openReview(documentId, review) {
+      draft = {
+        documentId,
+        documentType: review.documentType,
+        documentTypeLabel: review.documentTypeLabel,
+        medications: review.medications.map((m) => ({ name: m.name, dose: m.dose || "", frequency: m.frequency || "", status: m.status })),
+        appointments: review.appointments.map((a) => ({ ...a, type: a.type || "", provider: a.provider || "", date: a.date || "", time: a.time || "", location: a.location || "" })),
+        followUps: review.followUps.map((f) => ({ description: f.description, timeframe: f.timeframe || "" })),
+        instructions: [...review.instructions],
+      };
+      reviewSubtitle.textContent = `From your ${review.documentTypeLabel.toLowerCase()}. Review the details below before adding them.`;
+      reviewEmptyNote.hidden = !review.isEmpty;
+      reviewError.hidden = true;
+      reviewError.textContent = "";
+      reviewConfirmButton.disabled = false;
+      reviewConfirmButton.textContent = "Confirm & Add to Y.P.I.A";
+      renderReviewSections();
+      reviewOverlay.hidden = false;
+      reviewPanel.hidden = false;
+    }
+
+    function closeReview() {
+      reviewOverlay.hidden = true;
+      reviewPanel.hidden = true;
+      draft = null;
+    }
+
+    function itemField(container, item, field) {
+      const wrap = el("label", "review-field");
+      wrap.append(el("span", "review-field-label", field.label));
+      let input;
+      if (field.type === "select") {
+        input = document.createElement("select");
+        for (const option of field.options) {
+          const opt = document.createElement("option");
+          opt.value = option.value;
+          opt.textContent = option.label;
+          if (item[field.name] === option.value) opt.selected = true;
+          input.append(opt);
+        }
+      } else {
+        input = document.createElement("input");
+        input.type = "text";
+        input.value = item[field.name] || "";
+      }
+      input.className = "review-input";
+      input.addEventListener("input", () => {
+        item[field.name] = input.value;
+      });
+      input.addEventListener("change", () => {
+        item[field.name] = input.value;
+      });
+      wrap.append(input);
+      container.append(wrap);
+    }
+
+    function renderItemRow(section, item, index) {
+      const row = el("div", "review-item");
+      if (item._editing) {
+        const fieldsWrap = el("div", "review-fields");
+        for (const field of section.fields) itemField(fieldsWrap, item, field);
+        row.append(fieldsWrap);
+
+        const actions = el("div", "review-item-actions");
+        const doneButton = el("button", "review-link-button", "Done");
+        doneButton.type = "button";
+        doneButton.addEventListener("click", () => {
+          item._editing = false;
+          renderReviewSections();
+        });
+        actions.append(doneButton);
+        row.append(actions);
+      } else {
+        const summary = section.summary(item);
+        const text = el("div", "review-item-text");
+        text.append(el("p", "review-item-primary", summary.primary));
+        if (summary.secondary) text.append(el("p", "review-item-secondary", summary.secondary));
+        row.append(text);
+
+        const actions = el("div", "review-item-actions");
+        const editButton = el("button", "review-link-button", "Edit");
+        editButton.type = "button";
+        editButton.addEventListener("click", () => {
+          item._editing = true;
+          renderReviewSections();
+        });
+        const removeButton = el("button", "review-link-button review-link-remove", "Remove");
+        removeButton.type = "button";
+        removeButton.addEventListener("click", () => {
+          draft[section.key] = draft[section.key].filter((candidate) => candidate !== item);
+          renderReviewSections();
+        });
+        actions.append(editButton, removeButton);
+        row.append(actions);
+      }
+      return row;
+    }
+
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function renderInstructionsSection() {
+      const items = draft.instructions;
+      if (items.length === 0) return null;
+
+      const section = el("div", "review-section");
+      section.append(el("h3", "review-section-title", "Notes From the Document"));
+      items.forEach((text, index) => {
+        const row = el("div", "review-item");
+        row.append(el("p", "review-item-primary", text));
+        const actions = el("div", "review-item-actions");
+        const removeButton = el("button", "review-link-button review-link-remove", "Remove");
+        removeButton.type = "button";
+        removeButton.addEventListener("click", () => {
+          draft.instructions = draft.instructions.filter((_, i) => i !== index);
+          renderReviewSections();
+        });
+        actions.append(removeButton);
+        row.append(actions);
+        section.append(row);
+      });
+      return section;
+    }
+
+    function renderReviewSections() {
+      reviewSections.replaceChildren();
+      for (const section of REVIEW_SECTIONS) {
+        const items = draft[section.key];
+        if (items.length === 0) continue;
+        const sectionEl = el("div", "review-section");
+        sectionEl.append(el("h3", "review-section-title", section.title));
+        items.forEach((item, index) => sectionEl.append(renderItemRow(section, item, index)));
+        reviewSections.append(sectionEl);
+      }
+      const instructionsSection = renderInstructionsSection();
+      if (instructionsSection) reviewSections.append(instructionsSection);
+    }
+
+    reviewCancelButton.addEventListener("click", closeReview);
+    reviewOverlay.addEventListener("click", closeReview);
+
+    reviewConfirmButton.addEventListener("click", async () => {
+      if (!draft || !user?.id) return;
+      reviewConfirmButton.disabled = true;
+      reviewConfirmButton.textContent = "Saving...";
+      reviewError.hidden = true;
+
+      const editedData = {
+        documentType: draft.documentType,
+        medications: draft.medications.map(({ name, dose, frequency, status }) => ({
+          name, dose: dose || null, frequency: frequency || null, status,
+        })),
+        appointments: draft.appointments.map(({ type, provider, date, time, location }) => ({
+          type: type || null, provider: provider || null, date: date || null, time: time || null, location: location || null,
+        })),
+        followUps: draft.followUps.map(({ description, timeframe }) => ({ description, timeframe: timeframe || null })),
+        instructions: draft.instructions,
+      };
+      const documentId = draft.documentId;
+
+      try {
+        const response = await fetch(`http://localhost:3000/api/documents/${encodeURIComponent(documentId)}/confirm`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.id, editedData }),
+        });
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          reviewError.textContent = (data && data.error) || "We couldn't save this information. Please try again.";
+          reviewError.hidden = false;
+          reviewConfirmButton.disabled = false;
+          reviewConfirmButton.textContent = "Confirm & Add to Y.P.I.A";
+          return;
+        }
+
+        closeReview();
+        openSuccess(data);
+      } catch {
+        reviewError.textContent = "Something went wrong. Please try again.";
+        reviewError.hidden = false;
+        reviewConfirmButton.disabled = false;
+        reviewConfirmButton.textContent = "Confirm & Add to Y.P.I.A";
+      }
+    });
+
+    function openSuccess(result) {
+      successTitle.textContent =
+        result.status === "already_confirmed"
+          ? "This document was already added."
+          : `Added to ${firstName === "there" ? "your" : firstName + "'s"} care information.`;
+
+      successChanges.replaceChildren();
+      if (result.summary && result.summary.length > 0) {
+        const section = el("div", "review-section");
+        section.append(el("h3", "review-section-title", "What Changed"));
+        for (const change of result.summary) {
+          section.append(el("p", "review-item-primary", change.summary));
+        }
+        successChanges.append(section);
+      } else if (result.status !== "already_confirmed") {
+        successChanges.append(el("p", "review-empty-note", "Nothing new to update this time — your records already reflect this."));
+      }
+
+      successOverlay.hidden = false;
+      successPanel.hidden = false;
+    }
+
+    function closeSuccess() {
+      successOverlay.hidden = true;
+      successPanel.hidden = true;
+    }
+
+    successCloseButton.addEventListener("click", closeSuccess);
+    successOverlay.addEventListener("click", closeSuccess);
   </script>
 
   <script type="module">
     import { Conversation } from "https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.25.0/+esm";
+    import { createConversationSync } from "/static/js/voice-conversation-sync.mjs";
 
     const voiceButton = document.getElementById("voiceButton");
     const voiceStatus = document.getElementById("voiceStatus");
@@ -187,8 +511,10 @@
 
     let conversation = null;
     let activeConversationId = null;
+    let activeSession = null;
     let currentMode = "listening";
     let orbAnimationFrame = null;
+    const syncConversation = createConversationSync();
 
     function setStatus(text) {
       voiceStatus.textContent = text;
@@ -245,28 +571,34 @@
       }
     }
 
-    async function syncConversation(userId, conversationId) {
-      try {
-        await fetch("http://localhost:3000/api/parent/voice-conversations/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, conversationId }),
-        });
-      } catch {
-        // Non-fatal: the conversation mapping is already saved and can be retried later.
+    function finishConversation(session) {
+      if (session.finished) return;
+      session.finished = true;
+      if (activeSession === session) {
+        activeSession = null;
+        reset();
+      }
+
+      const endedConversationId = session.id;
+      if (user?.id && endedConversationId) {
+        // A short call can end before registration finishes. UI cleanup never waits.
+        void session.registration.then(() => syncConversation(user.id, endedConversationId));
       }
     }
 
     async function startConversation() {
+      if (activeSession) return;
+      const session = { id: null, connection: null, registration: Promise.resolve(), ending: false, finished: false };
+      activeSession = session;
       voiceButton.disabled = true;
       voiceButton.classList.add("is-connecting");
       setStatus("Connecting...");
 
       try {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
+        const permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        permissionStream.getTracks().forEach((track) => track.stop());
       } catch {
-        voiceButton.disabled = false;
-        voiceButton.classList.remove("is-connecting");
+        finishConversation(session);
         setStatus("Microphone access denied");
         return;
       }
@@ -276,7 +608,7 @@
         if (!response.ok) throw new Error("signed-url request failed");
         const { signedUrl } = await response.json();
 
-        conversation = await Conversation.startSession({
+        session.connection = await Conversation.startSession({
           signedUrl,
           dynamicVariables: {
             user_id: user?.id ?? "",
@@ -358,6 +690,65 @@
                 return { status: "error", message: "Could not retrieve recent changes right now." };
               }
             },
+            get_parent_background: async () => {
+              if (!user?.id) {
+                return { status: "error", message: "No logged-in parent found." };
+              }
+
+              try {
+                const apiResponse = await fetch(
+                  `http://localhost:3000/api/parent/background?userId=${encodeURIComponent(user.id)}`
+                );
+                if (!apiResponse.ok) {
+                  return { status: "error", message: "Could not retrieve background information right now." };
+                }
+
+                const data = await apiResponse.json();
+                const memories = Array.isArray(data.memories) ? data.memories : [];
+                if (data.status !== "ok" || (!data.background && memories.length === 0)) {
+                  return { status: "none", message: "Y.P.I.A does not currently have background information for you." };
+                }
+
+                return { status: "ok", name: data.name, background: data.background, memories };
+              } catch {
+                return { status: "error", message: "Could not retrieve background information right now." };
+              }
+            },
+            get_parent_schedule: async ({ range } = {}) => {
+              if (!user?.id) {
+                return { status: "error", message: "No logged-in parent found." };
+              }
+
+              const allowedRanges = ["today", "tomorrow", "week", "upcoming"];
+              if (!allowedRanges.includes(range)) {
+                return { status: "error", message: "range must be one of: today, tomorrow, week, upcoming." };
+              }
+
+              let timezone = "America/Chicago";
+              try {
+                timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || timezone;
+              } catch {
+                // Keep the fallback.
+              }
+
+              try {
+                const apiResponse = await fetch(
+                  `http://localhost:3000/api/parent/schedule?userId=${encodeURIComponent(user.id)}&range=${encodeURIComponent(range)}&timezone=${encodeURIComponent(timezone)}`
+                );
+                if (!apiResponse.ok) {
+                  return { status: "error", message: "Could not retrieve schedule information right now." };
+                }
+
+                const data = await apiResponse.json();
+                if (!data.events || data.events.length === 0) {
+                  return { status: "none", message: "No schedule events were found for that time range.", range };
+                }
+
+                return { status: "ok", range, events: data.events };
+              } catch {
+                return { status: "error", message: "Could not retrieve schedule information right now." };
+              }
+            },
             create_caregiver_action: async ({ text } = {}) => {
               if (!user?.id) {
                 return { status: "error", message: "No logged-in parent found." };
@@ -388,6 +779,8 @@
             },
           },
           onConnect: ({ conversationId }) => {
+            if (activeSession !== session || session.finished) return;
+            session.id = conversationId;
             activeConversationId = conversationId;
             currentMode = "listening";
             voiceButton.classList.remove("is-connecting");
@@ -395,44 +788,45 @@
             setStatus("Tap to end");
             startOrbAnimation();
             if (user?.id && conversationId) {
-              registerConversation(user.id, conversationId);
+              session.registration = registerConversation(user.id, conversationId);
             }
           },
-          onDisconnect: reset,
+          onDisconnect: () => finishConversation(session),
           onModeChange: ({ mode }) => {
+            if (activeSession !== session) return;
             currentMode = mode;
             voiceButton.classList.toggle("is-speaking", mode === "speaking");
             setStatus(mode === "speaking" ? "Speaking..." : "Listening...");
           },
           onError: () => {
-            voiceButton.disabled = false;
-            voiceButton.classList.remove("is-connecting", "is-active", "is-speaking");
-            stopOrbAnimation();
-            setStatus("Connection failed. Tap to retry.");
-            conversation = null;
+            if (activeSession !== session) return;
+            setStatus("Voice error. Tap to end and retry.");
           },
         });
 
-        voiceButton.disabled = false;
+        if (activeSession === session && !session.finished) {
+          conversation = session.connection;
+          voiceButton.disabled = false;
+        }
       } catch {
-        voiceButton.disabled = false;
-        voiceButton.classList.remove("is-connecting", "is-active", "is-speaking");
-        stopOrbAnimation();
-        setStatus("Connection failed. Tap to retry.");
-        conversation = null;
+        if (activeSession === session) {
+          finishConversation(session);
+          setStatus("Connection failed. Tap to retry.");
+        }
       }
     }
 
     async function endConversation() {
+      const session = activeSession;
+      if (!session || session.ending) return;
+      session.ending = true;
       voiceButton.disabled = true;
-      const conversationIdToSync = activeConversationId;
       try {
-        await conversation?.endSession();
+        await session.connection?.endSession();
+      } catch {
+        // Still restore the UI and attempt sync for the captured conversation.
       } finally {
-        reset();
-        if (user?.id && conversationIdToSync) {
-          syncConversation(user.id, conversationIdToSync);
-        }
+        finishConversation(session);
       }
     }
 
