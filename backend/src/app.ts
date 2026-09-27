@@ -11,6 +11,7 @@ import { getParentIdForUser, getNextAppointment, getCurrentMedications } from ".
 import { saveDocumentExtraction, getLatestChanges } from "./services/documentHistory.js";
 import { DatabaseConfigurationError, getPool } from "./db.js";
 import { signupSchema, loginSchema, backgroundNotesSchema } from "./schemas.js";
+import { gameRoutes } from "./gameRoutes.js";
 
 const upload = multer({ storage: multer.memoryStorage() });
 const backgroundUpload = multer({
@@ -467,6 +468,7 @@ export function createApp() {
     }
   });
 
+  app.use(gameRoutes);
   app.use(errorHandler);
   return app;
 }

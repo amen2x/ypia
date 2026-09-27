@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solitaire | Y.P.I.A</title>
+  <link rel="stylesheet" href="games.css">
+  <style>.page.wide { max-width: 980px; }</style>
+</head>
+<body>
+  <main class="page wide">
+    <div class="topbar">
+      <span class="brand">Y.P.I.A · Solitaire</span>
+      <button type="button" class="link-button" id="stopButton" hidden>Stop game</button>
+      <a href="index.html" id="backLink">Back to games</a>
+    </div>
+
+    <!-- solitaire.js fills this box -->
+    <div id="app" class="card" aria-live="polite">
+      <p class="big center">Dealing the cards…</p>
+    </div>
+  </main>
+
+  <script src="common.js"></script>
+  <script src="solitaire.js"></script>
+</body>
+</html>
