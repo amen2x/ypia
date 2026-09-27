@@ -175,10 +175,11 @@
  
     <div class="actionList"  id="actionList">
  
-    <div class="action-item" draggable="true" data-urgency="medium">
+    <div class="action-item" draggable="true" data-urgency="medium" data-date="2026-10-05">
             <span class="drag-handle">⋮⋮</span>
             <input type="checkbox" id="physicaltherapy">
             <label for="physicaltherapy">Book susan physical therapy appoitment</label>
+                <span class="item-date">Due Oct 5</span>
             <select class="urgency-select">
             <option value="high">High</option>
             <option value="medium">Medium</option>
@@ -188,10 +189,11 @@
             
         </div>
  
-        <div class="action-item" draggable="true" data-urgency="low">
+        <div class="action-item" draggable="true" data-urgency="low" data-date="2026-09-29">
             <span class="drag-handle">⋮⋮</span>
             <input type="checkbox" id="grocery">
             <label for="grocery">Set up time this week to take susan to the grocery store</label>
+                <span class="item-date">Due Sep 29</span>
              <select class="urgency-select">
             <option value="high">High</option>
             <option value="medium">Medium</option>
@@ -200,10 +202,12 @@
             <button class="cal-btn" title="Add to Google Calendar">📅</button>
         </div>
  
-        <div class="action-item" draggable="true" data-urgency="high">
+        <div class="action-item" draggable="true" data-urgency="high" data-date="2026-10-10">
             <span class="drag-handle">⋮⋮</span>
             <input type="checkbox" id="mentalhealth">
             <label for="mentalhealth">Check in with susan about her mental health</label>
+                <span class="item-date">Due Oct 10</span>
+
              <select class="urgency-select">
             <option value="high">High</option>
             <option value="medium">Medium</option>
@@ -217,6 +221,7 @@
  
     <div class="add-item-row">
     <input type="text" id="newItemInput" placeholder="Add a new item...">
+      <input type="date" id="newItemDate" required>
     <button id="addItemBtn">+</button>
 </div>
   </aside>
@@ -623,37 +628,61 @@ document.addEventListener("click", hideAllDayInfo);
     // Shared helper: add an action item to the list by id, skipping duplicates.
     // Other scripts (like the wellness tracker's mental-health-streak check)
     // call window.addActionItem(...) to push items in from outside this IIFE.
-    function addActionItem(id, text, urgency = 'medium') {
-        if (document.getElementById(id)) return; // already on the list, don't duplicate
- 
-        const item = document.createElement('div');
-        item.className = 'action-item';
-        item.draggable = true;
-        item.dataset.urgency = urgency;
-        item.innerHTML = `
-            <span class="drag-handle">⋮⋮</span>
-            <input type="checkbox" id="${id}">
-            <label for="${id}">${text}</label>
-            <select class="urgency-select">
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-            </select>
-            <button class="cal-btn" title="Add to Google Calendar">📅</button>
-        `;
-        const select = item.querySelector('.urgency-select');
-        if (select) select.value = urgency;
- 
-        list.prepend(item); // surface auto-flagged items at the top
-    }
-    window.addActionItem = addActionItem;
+    function formatDueDate(dateStr) {
+    if (!dateStr) return "";
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    return "Due " + dt.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function addActionItem(id, text, urgency = "medium", dateStr) {
+    if (document.getElementById(id)) return; // already on the list, don't duplicate
+
+    const item = document.createElement("div");
+    item.className = "action-item";
+    item.draggable = true;
+    item.dataset.urgency = urgency;
+    item.dataset.date = dateStr;
+    item.innerHTML = `
+        <span class="drag-handle">⋮⋮</span>
+        <input type="checkbox" id="${id}">
+        <label for="${id}">${text}</label>
+        <span class="item-date">${formatDueDate(dateStr)}</span>
+        <select class="urgency-select">
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+        </select>
+        <button class="cal-btn" title="Add to Google Calendar">📅</button>
+    `;
+    const select = item.querySelector(".urgency-select");
+    if (select) select.value = urgency;
+
+    insertItemSorted(item);
+}
+   window.addActionItem = addActionItem;
  
     // Checkbox strike-through
-    list.addEventListener('change', (e) => {
-        if (e.target.matches('input[type="checkbox"]')) {
-            e.target.closest('.action-item').classList.toggle('checked', e.target.checked);
-        }
-    });
+    list.addEventListener("change", (e) => {
+    if (e.target.matches('input[type="checkbox"]') && e.target.checked) {
+        const item = e.target.closest(".action-item");
+        item.classList.add("checked"); // brief strikethrough
+        setTimeout(() => item.remove(), 200);
+    }
+});
+
+    function insertItemSorted(item) {
+    const newDate = new Date(item.dataset.date);
+    const existing = Array.from(list.children);
+    const target = existing.find(el => new Date(el.dataset.date) > newDate);
+    if (target) {
+        list.insertBefore(item, target);
+    } else {
+        list.appendChild(item);
+    }
+}
+
+    
  
     // Drag to reorder (position in the list = rank of importance)
     list.addEventListener('dragstart', (e) => {
@@ -720,13 +749,24 @@ document.getElementById('newItemInput').addEventListener('keydown', (e) => {
 });
  
 function addNewItem() {
-    const input = document.getElementById('newItemInput');
+    const input = document.getElementById("newItemInput");
+    const dateInput = document.getElementById("newItemDate");
     const text = input.value.trim();
+    const dateStr = dateInput.value;
+
+    dateInput.classList.remove("invalid");
+
     if (!text) return;
- 
-    const id = 'item-' + Date.now();
-    window.addActionItem(id, text, 'medium');
-    input.value = '';
+    if (!dateStr) {
+        dateInput.classList.add("invalid");
+        dateInput.reportValidity(); // shows the browser's native "please fill this in" bubble
+        return;
+    }
+
+    const id = "item-" + Date.now();
+    window.addActionItem(id, text, "medium", dateStr);
+    input.value = "";
+    dateInput.value = "";
 }
 </script>
  
