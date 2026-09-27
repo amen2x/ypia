@@ -5,7 +5,7 @@ import { getPool } from "../db.js";
 // ---------------------------------------------------------------------
 // Builds one 10-question trivia game for a parent.
 //   Questions 1, 5 and 10: memory (facts the family entered, or her
-//                           recent appointments)
+//                           recent calendar events)
 //   The other 7:           her interests (Gemini, or the backup list)
 // If a memory question can't be made, question 5 or 10 asks her to
 // recall an earlier answer instead ("recall"), and question 1 becomes
@@ -39,7 +39,7 @@ type Draft = Omit<TriviaQuestion, "n" | "kind">;
 
 interface TriviaInputs {
   facts: Draft[];               // memory questions from family_facts, freshest first
-  appointment: Draft | null;    // one memory question from a recent appointment
+  appointment: Draft | null;    // one memory question from a recent calendar event
   topics: string[];             // "more about" answers from her surveys, newest first
   recentQuestions: Set<string>; // questions she was asked in recent games
 }
@@ -161,47 +161,69 @@ async function loadInputs(parentId: string): Promise<TriviaInputs> {
 
   return {
     facts: [...fresh, ...asked],
-    appointment: await loadAppointmentQuestion(parentId),
+    appointment: await loadRecentEventQuestion(parentId),
     topics: topicRows.rows.map((row) => row.more_about),
     recentQuestions,
   };
 }
 
-// "On Tuesday, September 22, what was your appointment?"
-// Uses the most recent appointment in the last 14 days. The appointments
-// table belongs to the team, so if anything about it fails we just skip it.
-async function loadAppointmentQuestion(parentId: string): Promise<Draft | null> {
-  try {
-    const { rows } = await getPool().query<{ title: string; starts_at: Date; timezone: string | null }>(
-      `SELECT title, starts_at, timezone
-       FROM appointments
-       WHERE parent_id = $1
-         AND starts_at IS NOT NULL
-         AND title IS NOT NULL AND btrim(title) <> ''
-         AND lower(coalesce(status::text, '')) NOT IN ('cancelled', 'canceled', 'missed', 'no_show')
-       ORDER BY starts_at DESC
-       LIMIT 20`,
-      [parentId],
-    );
+// "On Tuesday, October 6, what did you do?"
+// Uses the most recent event in the last 14 days from the team's calendar
+// (schedule table), or else from appointments. Her other events (on other
+// days) are the wrong answers. Both tables belong to the team, so if
+// anything about them fails we just skip this question.
+const EVENT_SOURCES = [
+  {
+    name: "schedule",
+    sql: `SELECT title, start_time AS starts_at
+          FROM schedule
+          WHERE parent_id::text = $1
+            AND title IS NOT NULL AND btrim(title) <> ''
+            AND lower(coalesce(status::text, '')) NOT IN ('cancelled', 'canceled', 'missed', 'no_show')
+            AND start_time BETWEEN now() - interval '60 days' AND now() + interval '60 days'
+          ORDER BY start_time DESC
+          LIMIT 100`,
+    ask: (day: string) => `On ${day}, what did you do?`,
+    filler: ["Went to the grocery store", "Visited the library", "Went to the hair salon"],
+  },
+  {
+    name: "appointments",
+    sql: `SELECT title, starts_at
+          FROM appointments
+          WHERE parent_id = $1
+            AND title IS NOT NULL AND btrim(title) <> ''
+            AND lower(coalesce(status::text, '')) NOT IN ('cancelled', 'canceled', 'missed', 'no_show')
+            AND starts_at BETWEEN now() - interval '60 days' AND now() + interval '60 days'
+          ORDER BY starts_at DESC
+          LIMIT 100`,
+    ask: (day: string) => `On ${day}, what was your appointment?`,
+    filler: GENERIC_APPOINTMENTS,
+  },
+];
 
-    const now = Date.now();
-    const twoWeeksAgo = now - 14 * 24 * 60 * 60 * 1000;
-    const recent = rows.find((row) => row.starts_at.getTime() < now && row.starts_at.getTime() >= twoWeeksAgo);
-    if (!recent) return null;
+async function loadRecentEventQuestion(parentId: string): Promise<Draft | null> {
+  const now = Date.now();
+  const twoWeeksAgo = now - 14 * 24 * 60 * 60 * 1000;
 
-    const day = formatDay(recent.starts_at, recent.timezone);
-    // Other appointments (on other days) make good wrong answers.
-    const otherTitles = rows
-      .filter((row) => formatDay(row.starts_at, row.timezone) !== day)
-      .map((row) => row.title);
-    const wrong = cleanWrongAnswers([...shuffle(otherTitles), ...shuffle(GENERIC_APPOINTMENTS)], recent.title);
-    if (wrong.length < 2) return null;
+  for (const source of EVENT_SOURCES) {
+    try {
+      const { rows } = await getPool().query<{ title: string; starts_at: Date }>(source.sql, [parentId]);
+      const recent = rows.find((row) => row.starts_at.getTime() < now && row.starts_at.getTime() >= twoWeeksAgo);
+      if (!recent) continue;
 
-    return makeDraft("Recent schedule", `On ${day}, what was your appointment?`, recent.title, wrong);
-  } catch (error: unknown) {
-    console.warn("Trivia: skipped appointment question:", error instanceof Error ? error.message : error);
-    return null;
+      const day = formatDay(recent.starts_at, null);
+      const otherTitles = rows
+        .filter((row) => formatDay(row.starts_at, null) !== day)
+        .map((row) => row.title);
+      const wrong = cleanWrongAnswers([...shuffle(otherTitles), ...shuffle(source.filler)], recent.title);
+      if (wrong.length < 2) continue;
+
+      return makeDraft("Recent schedule", source.ask(day), recent.title, wrong);
+    } catch (error: unknown) {
+      console.warn(`Trivia: skipped the ${source.name} question:`, error instanceof Error ? error.message : error);
+    }
   }
+  return null;
 }
 
 // ---------------------------------------------------------------------
@@ -342,7 +364,10 @@ interface BackupQuestion {
 // Each one matches the start of a word: "garden" also matches "gardening".
 const BACKUP_TOPIC_WORDS: Record<string, string[]> = {
   Gardening: ["garden", "flower", "plant", "rose", "tomato", "vegetable"],
-  Motown: ["motown", "soul", "music", "r&b", "danc", "song"],
+  Motown: ["motown", "soul music", "r&b", "doo-wop"],
+  "Country music": ["country music", "country western", "bluegrass", "nashville", "grand ole opry"],
+  Mysteries: ["myster", "detective", "novel", "book", "reading", "librar"],
+  Baking: ["bak", "pie", "cake", "cookie", "bread", "dessert"],
   History: ["histor", "world war", "ww1", "wwi", "veteran", "military", "soldier"],
   Choir: ["choir", "church", "hymn", "gospel", "singing", "sings", "singer"],
   Nursing: ["nurse", "nursing", "hospital"],
@@ -385,6 +410,24 @@ const BACKUP_QUESTIONS: BackupQuestion[] = [
 
   { topic: "Nursing", question: "Which nurse was known as \"The Lady with the Lamp\"?", answer: "Florence Nightingale", wrong: ["Clara Barton", "Mary Seacole", "Dorothea Dix"] },
   { topic: "Nursing", question: "Who founded the American Red Cross?", answer: "Clara Barton", wrong: ["Florence Nightingale", "Eleanor Roosevelt", "Susan B. Anthony"] },
+
+  { topic: "Country music", question: "Who sang \"Stand by Your Man\"?", answer: "Tammy Wynette", wrong: ["Dolly Parton", "Loretta Lynn", "Patsy Cline"] },
+  { topic: "Country music", question: "Which singer is known as the \"Coal Miner's Daughter\"?", answer: "Loretta Lynn", wrong: ["Tammy Wynette", "Dolly Parton", "June Carter"] },
+  { topic: "Country music", question: "Patsy Cline had a famous hit with which song?", answer: "Crazy", wrong: ["Jolene", "Ring of Fire", "Stand by Your Man"] },
+  { topic: "Country music", question: "Which country star was called \"The Man in Black\"?", answer: "Johnny Cash", wrong: ["Willie Nelson", "Merle Haggard", "Hank Williams"] },
+  { topic: "Country music", question: "Which city is home to the Grand Ole Opry?", answer: "Nashville", wrong: ["Memphis", "Austin", "Branson"] },
+  { topic: "Country music", question: "What is the name of Dolly Parton's theme park in Tennessee?", answer: "Dollywood", wrong: ["Graceland", "Opryland", "Silver Dollar City"] },
+
+  { topic: "Mysteries", question: "Which author created the detective Hercule Poirot?", answer: "Agatha Christie", wrong: ["Dorothy L. Sayers", "Arthur Conan Doyle", "Raymond Chandler"] },
+  { topic: "Mysteries", question: "What is the name of Agatha Christie's village detective who is an elderly lady?", answer: "Miss Marple", wrong: ["Miss Havisham", "Mrs. Hudson", "Miss Jean Brodie"] },
+  { topic: "Mysteries", question: "Sherlock Holmes lived at which address?", answer: "221B Baker Street", wrong: ["10 Downing Street", "7 Savile Row", "1 Abbey Road"] },
+  { topic: "Mysteries", question: "The Nancy Drew books were written under which pen name?", answer: "Carolyn Keene", wrong: ["Franklin W. Dixon", "Laura Lee Hope", "Ann M. Martin"] },
+  { topic: "Mysteries", question: "Who wrote the Perry Mason mysteries?", answer: "Erle Stanley Gardner", wrong: ["Rex Stout", "Mickey Spillane", "Dashiell Hammett"] },
+
+  { topic: "Baking", question: "What makes bread dough rise?", answer: "Yeast", wrong: ["Salt", "Butter", "Flour"] },
+  { topic: "Baking", question: "Besides sugar, what is the main ingredient in meringue?", answer: "Egg whites", wrong: ["Egg yolks", "Butter", "Flour"] },
+  { topic: "Baking", question: "What do you call a cake baked in a ring-shaped pan with a hole in the middle?", answer: "Bundt cake", wrong: ["Sheet cake", "Layer cake", "Cupcake"] },
+  { topic: "Baking", question: "Snickerdoodle cookies are rolled in sugar and which spice?", answer: "Cinnamon", wrong: ["Nutmeg", "Ginger", "Cloves"] },
 
   { topic: "General", question: "What is the largest ocean on Earth?", answer: "The Pacific", wrong: ["The Atlantic", "The Indian", "The Arctic"] },
   { topic: "General", question: "How many states are in the United States?", answer: "50", wrong: ["48", "49", "52"] },
