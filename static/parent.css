@@ -56,6 +56,11 @@ a:focus-visible {
   z-index: 25;
 }
 
+.streak-badge {
+  font-size: 1.1rem;
+  margin-top: 4px;
+}
+
 .brand {
   font-size: 1.15rem;
   font-weight: 800;

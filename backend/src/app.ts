@@ -29,18 +29,16 @@ import {
 } from "./services/caregiverActions.js";
 import { registerVoiceConversation, syncVoiceConversation } from "./services/voiceConversations.js";
 import { listSharedDocuments } from "./services/caregiverDocuments.js";
-import {
-  getParentBackground,
-  getParentSchedule,
-  isValidScheduleRange,
-  resolveTimezone,
-} from "./services/parentContext.js";
+import { checkInParent } from "./services/checkIns.js";
 import { DatabaseConfigurationError, getPool } from "./db.js";
 import { scoreUnreviewedSchedule } from "./services/schedulePoints.js";
 import { signupSchema, loginSchema, backgroundNotesSchema } from "./schemas.js";
 import { gameRoutes } from "./gameRoutes.js";
 import { streakRoutes } from "./streakRoutes.js";
 import { calendarRoutes } from "./calendarRoutes.js";
+
+import { getParentBackground, isValidScheduleRange, resolveTimezone, getParentSchedule } from "./services/parentContext.js";
+
 
 const MAX_ACTION_TEXT_LENGTH = 500;
 
@@ -234,6 +232,32 @@ export function createApp() {
     } catch (error: unknown) {
       console.error("Failed to load current medications", error);
       response.status(500).json({ error: "Unable to load medication information" });
+    }
+  });
+
+  app.post("/api/parent/check-in", async (request, response) => {
+    const userId = parseUserId((request.body as Record<string, unknown> | undefined)?.userId);
+    const activityNotes =
+      parseActionText((request.body as Record<string, unknown> | undefined)?.activityNotes) ??
+      "Activity check-in";
+
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+
+    try {
+      const parentId = await getParentIdForUser(userId);
+      if (!parentId) {
+        response.status(404).json({ error: "No parent profile found for this user" });
+        return;
+      }
+
+      const streak = await checkInParent(parentId, userId, activityNotes);
+      response.json({ status: "ok", streak });
+    } catch (error: unknown) {
+      console.error("Failed to check in parent", error);
+      response.status(500).json({ error: "Unable to record check-in" });
     }
   });
 
@@ -630,6 +654,41 @@ export function createApp() {
       next(error);
     }
   });
+
+  app.get("/api/parent/streak", async (request, response) => {
+  const userId = parseUserId(request.query.userId);
+  if (!userId) {
+    response.status(400).json({ error: "userId is required" });
+    return;
+  }
+
+  try {
+    const parentId = await getParentIdForUser(userId);
+    if (!parentId) {
+      response.status(404).json({ error: "No parent profile found for this user" });
+      return;
+    }
+
+    const result = await getPool().query(
+      `SELECT streak, last_checkin_date, last_active_week FROM parent_streak WHERE parent_id = $1`,
+      [parentId]
+    );
+
+    if (result.rows.length === 0) {
+      response.json({ streak: 0 });
+      return;
+    }
+
+    response.json({
+      streak: result.rows[0].streak,
+      lastCheckinDate: result.rows[0].last_checkin_date,
+      lastActiveWeek: result.rows[0].last_active_week,
+    });
+  } catch (error: unknown) {
+    console.error("Failed to load streak", error);
+    response.status(500).json({ error: "Unable to load streak" });
+  }
+});
 
   app.get("/api/users/:id/parent", async (request, response, next) => {
     try {

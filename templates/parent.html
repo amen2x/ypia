@@ -33,6 +33,8 @@
     <div class="greeting-block">
       <h1 class="greeting" id="greeting">Hi</h1>
       <p class="prompt">What can I help you with today?</p>
+      <p id="streakDisplay" class="streak-badge" hidden>🔥 <span id="streakCount">0</span> week streak</p>
+</div>
     </div>
 
     <div class="voice-hero">
@@ -81,6 +83,24 @@
     } else if (user.role !== "parent") {
       window.location.replace("/");
     }
+
+    async function loadStreak() {
+      if (!user?.id) return;
+      try {
+        const response = await fetch(`http://localhost:3000/api/parent/streak?userId=${encodeURIComponent(user.id)}`);
+        if (!response.ok) return;
+        const data = await response.json();
+        const streakDisplay = document.getElementById("streakDisplay");
+        const streakCount = document.getElementById("streakCount");
+        if (streakDisplay && streakCount && data.streak > 0) {
+          streakCount.textContent = data.streak;
+          streakDisplay.hidden = false;
+        }
+      } catch {
+        // Non-fatal: streak just won't show if this fails.
+      }
+    }
+    loadStreak();
 
     const firstName = (user?.fullName || "").trim().split(" ")[0] || "there";
 
@@ -520,8 +540,6 @@
       voiceStatus.textContent = text;
     }
 
-    // Reads real mic/agent loudness from the ElevenLabs session already
-    // holding the microphone — no second getUserMedia call, no fake motion.
     function animateOrb() {
       let volume = 0;
       if (conversation) {

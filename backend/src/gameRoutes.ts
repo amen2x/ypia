@@ -10,6 +10,7 @@ import {
   saveGameResult,
   saveSurvey,
 } from "./services/games.js";
+import { checkInParent } from "./services/checkIns.js";
 
 // ---------------------------------------------------------------------
 // Game routes. Like login, the page sends the logged-in user's id
@@ -23,6 +24,10 @@ import {
 // ---------------------------------------------------------------------
 
 export const gameRoutes = Router();
+
+// A game only counts toward her daily streak if she was actually playing,
+// not just opened and immediately backed out.
+const MIN_SECONDS_FOR_STREAK = 5;
 
 // ----- input checks -----
 
@@ -144,7 +149,22 @@ gameRoutes.post("/api/trivia/new", handle(async (request, response) => {
 gameRoutes.post("/api/games/result", handle(async (request, response) => {
   const input = parse(gameResultSchema, request.body);
   const parent = await requirePlayer(input.userId);
-  response.status(201).json(await saveGameResult(parent.id, input.userId, input));
+  const saved = await saveGameResult(parent.id, input.userId, input);
+
+  // Only credit her daily streak if she actually spent real time playing,
+  // not just opened and immediately backed out.
+  const playedSeconds = (Date.parse(input.finishedAt) - Date.parse(input.startedAt)) / 1000;
+  if (playedSeconds >= MIN_SECONDS_FOR_STREAK) {
+    try {
+      await checkInParent(parent.id, input.userId, `Played ${input.game}`);
+    } catch (error: unknown) {
+      // The game result is already saved; don't fail the whole request
+      // just because the streak update had a problem.
+      console.error("Failed to update streak after game result:", error);
+    }
+  }
+
+  response.status(201).json(saved);
 }));
 
 gameRoutes.post("/api/trivia/survey", handle(async (request, response) => {
