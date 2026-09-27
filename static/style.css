@@ -385,6 +385,52 @@ action-items:hover {
     padding: 0.15rem 0.3rem;
 }
 
+.action-items-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+}
+
+.completion-wheel {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+}
+
+.wheel-svg {
+    width: 100%;
+    height: 100%;
+}
+
+.wheel-bg {
+    fill: none;
+    stroke: var(--line);
+    stroke-width: 3;
+}
+
+.wheel-fg {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: 0, 100;
+    transition: stroke-dasharray 0.4s ease;
+}
+
+.wheel-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--ink);
+}
+
 .item-date {
     font-size: 0.72rem;
     color: var(--ink-soft);

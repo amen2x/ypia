@@ -192,8 +192,22 @@
  
   </div>
   </div>
+  
    <aside class="action-items">
-    <h2>Action items/check list?</h2>
+        <div class="action-items-header">
+        <h2>Action items/check list?</h2>
+        <div class="completion-wheel" title="Percent of items completed">
+            <svg viewBox="0 0 36 36" class="wheel-svg">
+                <path class="wheel-bg" d="M18 2.0845
+                    a 15.9155 15.9155 0 0 1 0 31.831
+                    a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path class="wheel-fg" id="wheelFg" d="M18 2.0845
+                    a 15.9155 15.9155 0 0 1 0 31.831
+                    a 15.9155 15.9155 0 0 1 0 -31.831" />
+            </svg>
+            <div class="wheel-label" id="wheelLabel">0%</div>
+        </div>
+    </div>
  
     <div class="actionList"  id="actionList">
  
@@ -899,6 +913,17 @@ document.addEventListener("click", hideAllDayInfo);
 <script>
 (function () {
     const list = document.getElementById('actionList');
+    let totalItemCount = list.children.length; // counts whatever's already in the list on load
+let completedItemCount = 0;
+const wheelFg = document.getElementById("wheelFg");
+const wheelLabel = document.getElementById("wheelLabel");
+
+function updateCompletionWheel() {
+    const percent = totalItemCount > 0 ? Math.round((completedItemCount / totalItemCount) * 100) : 0;
+    if (wheelFg) wheelFg.setAttribute("stroke-dasharray", `${percent}, 100`);
+    if (wheelLabel) wheelLabel.textContent = `${percent}%`;
+}
+updateCompletionWheel();
     let dragged = null;
  
     // Shared helper: add an action item to the list by id, skipping duplicates.
@@ -935,14 +960,19 @@ function addActionItem(id, text, urgency = "medium", dateStr) {
     if (select) select.value = urgency;
 
     insertItemSorted(item);
+
+    totalItemCount++;
+    updateCompletionWheel();
 }
    window.addActionItem = addActionItem;
  
     // Checkbox strike-through
     list.addEventListener("change", (e) => {
     if (e.target.matches('input[type="checkbox"]') && e.target.checked) {
-        const item = e.target.closest(".action-item");
-        item.classList.add("checked"); // brief strikethrough
+       const item = e.target.closest(".action-item");
+        item.classList.add("checked");
+        completedItemCount++;
+        updateCompletionWheel(); // brief strikethrough
         setTimeout(() => item.remove(), 200);
     }
 });
