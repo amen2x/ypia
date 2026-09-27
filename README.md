@@ -2,6 +2,8 @@
 
 **One calm place where an aging parent stays independent and their family stays close.**
 Built at **TigerHacks 2026**.
+**[Live Demo](https://yourparentsareaging.duckdns.org)**  
+**[Devpost](PASTE-DEVPOST-LINK-HERE)**
 
 ![Family dashboard](docs/images/family-dashboard.png)
 
