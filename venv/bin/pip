@@ -1,4 +1,4 @@
-#!/Users/tiyahjackman/Desktop/tigerhacks2026/Tigerhacks2026/venv/bin/python3.12
+#!/home/jd/Desktop/github/Tigerhacks2026/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys

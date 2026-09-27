@@ -38,6 +38,14 @@ function buildPoolConfig(): PoolConfig {
 }
 
 export function getPool(): Pool {
-  if (!pool) pool = new Pool(buildPoolConfig());
+  if (!pool) {
+    pool = new Pool(buildPoolConfig());
+
+    // Without this handler, an error on an idle client crashes the process
+    // (or gets swallowed entirely depending on Node version) with no log line.
+    pool.on("error", (err) => {
+      console.error("Unexpected error on idle Postgres client:", err);
+    });
+  }
   return pool;
 }

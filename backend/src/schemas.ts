@@ -7,6 +7,10 @@ export const medicationSchema = z.object({
   status: z.enum(["active", "started", "stopped", "changed", "unknown"])
 });
 
+export const backgroundNotesSchema = z.object({
+  backgroundNotes: z.string()
+});
+
 export const appointmentSchema = z.object({
   type: z.string().min(1).nullable(),
   provider: z.string().min(1).nullable(),
