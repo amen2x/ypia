@@ -80,7 +80,7 @@ export async function createAccount(input: SignupInput): Promise<{ userId: strin
 export async function verifyLogin(
   email: string,
   password: string
-): Promise<{ id: string; fullName: string; role: AccountRole }> {
+): Promise<{ id: string; fullName: string; role: AccountRole; parentId: string | null }> {
   const pool = getPool();
   const result = await pool.query<{ id: string; full_name: string; password_hash: string }>(
     "SELECT id, full_name, password_hash FROM users WHERE email = $1",
@@ -98,20 +98,34 @@ export async function verifyLogin(
     throw new AuthError("Invalid email or password");
   }
 
-  const roleResult = await pool.query<{ is_parent: boolean; is_caregiver: boolean }>(
-    `SELECT EXISTS(SELECT 1 FROM parents WHERE user_id = $1) AS is_parent,
-            EXISTS(SELECT 1 FROM parent_relationships WHERE user_id = $1) AS is_caregiver`,
-    [user.id],
+  const parentRow = await pool.query<{ id: string }>(
+    "SELECT id FROM parents WHERE user_id = $1",
+    [user.id]
   );
-  const role = roleResult.rows[0]?.is_parent
-    ? "parent"
-    : roleResult.rows[0]?.is_caregiver
-      ? "caregiver"
-      : null;
 
-  if (role === null) {
-    throw new AuthError("Account role could not be determined");
+  if (parentRow.rows.length > 0) {
+    return { id: user.id, fullName: user.full_name, role: "parent", parentId: parentRow.rows[0].id };
   }
 
-  return { id: user.id, fullName: user.full_name, role };
+  // Auto-approve on login: if this account has a pending link to a parent,
+  // logging in successfully is treated as confirmation and flips it to approved.
+  const relationshipRow = await pool.query<{ parent_id: string; status: string }>(
+    "SELECT parent_id, status FROM parent_relationships WHERE user_id = $1 LIMIT 1",
+    [user.id]
+  );
+
+  if (relationshipRow.rows.length > 0) {
+    const { parent_id: parentId, status } = relationshipRow.rows[0];
+
+    if (status === "pending") {
+      await pool.query(
+        "UPDATE parent_relationships SET status = 'approved' WHERE user_id = $1 AND parent_id = $2",
+        [user.id, parentId]
+      );
+    }
+
+    return { id: user.id, fullName: user.full_name, role: "caregiver", parentId };
+  }
+
+  throw new AuthError("Account role could not be determined");
 }

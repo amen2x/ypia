@@ -11,4 +11,13 @@
 # environment files 
 **/.env/
 **/.env.*
+# virtual environments
+venv/
 .venv/
+env/
+virtualenv/
+
+# python cache
+__pycache__/
+*.py[cod]
+*$py.class
