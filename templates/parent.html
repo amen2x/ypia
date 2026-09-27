@@ -52,6 +52,7 @@
     max-width: 90vw;
   }
   .upload-hint { font-size: 0.9rem; opacity: 0.85; margin: 0.4rem 0 0; }
+  #uploadStatus { font-size: 0.9rem; margin: 0.4rem 0 0; min-height: 1.2em; }
   .logout {
     margin-top: 2.5rem;
     font-size: 0.85rem;
@@ -73,6 +74,7 @@
 
   <button id="uploadButton" aria-label="Add a medical document: photo or PDF">＋ Add medical document</button>
   <p class="upload-hint">Photo / Image / PDF</p>
+  <p id="uploadStatus"></p>
 
   <button class="logout" id="logoutButton">Log out</button>
 
@@ -87,8 +89,39 @@
       document.getElementById("greeting").textContent = `Hi, ${firstName}`;
     }
 
+    const uploadStatus = document.getElementById("uploadStatus");
+    const uploadInput = document.createElement("input");
+    uploadInput.type = "file";
+    uploadInput.accept = ".jpg,.jpeg,.png,.pdf";
+    uploadInput.hidden = true;
+    document.body.append(uploadInput);
+
     document.getElementById("uploadButton").addEventListener("click", () => {
-      alert("Document upload is coming soon.");
+      uploadInput.click();
+    });
+
+    uploadInput.addEventListener("change", async () => {
+      const file = uploadInput.files?.[0];
+      if (!file || !user?.id) return;
+
+      uploadStatus.textContent = "Uploading...";
+      const formData = new FormData();
+      formData.append("document", file);
+      formData.append("userId", user.id);
+
+      try {
+        const response = await fetch("http://localhost:3000/api/documents", {
+          method: "POST",
+          body: formData,
+        });
+        uploadStatus.textContent = response.ok
+          ? "Document saved."
+          : "Could not process that document. Please try again.";
+      } catch {
+        uploadStatus.textContent = "Something went wrong. Please try again.";
+      } finally {
+        uploadInput.value = "";
+      }
     });
 
     document.getElementById("logoutButton").addEventListener("click", () => {
@@ -184,6 +217,35 @@
                 return { status: "ok", medications: data.medications };
               } catch {
                 return { status: "error", message: "Could not retrieve medication information right now." };
+              }
+            },
+            get_latest_changes: async () => {
+              if (!user?.id) {
+                return { status: "error", message: "No logged-in parent found." };
+              }
+
+              try {
+                const apiResponse = await fetch(
+                  `http://localhost:3000/api/parent/latest-changes?userId=${encodeURIComponent(user.id)}`
+                );
+                if (!apiResponse.ok) {
+                  return { status: "error", message: "Could not retrieve recent changes right now." };
+                }
+
+                const data = await apiResponse.json();
+                if (data.status === "not_enough_history") {
+                  return { status: "none", message: "There isn't enough document history yet to compare changes." };
+                }
+                if (data.status === "malformed_history") {
+                  return { status: "error", message: "Recent records could not be compared right now." };
+                }
+                if (data.status === "no_changes" || !data.changes || data.changes.length === 0) {
+                  return { status: "none", message: "No changes were found between your two most recent records." };
+                }
+
+                return { status: "ok", changes: data.changes };
+              } catch {
+                return { status: "error", message: "Could not retrieve recent changes right now." };
               }
             },
           },
