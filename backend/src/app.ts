@@ -22,6 +22,12 @@ import {
 } from "./services/caregiverActions.js";
 import { registerVoiceConversation, syncVoiceConversation } from "./services/voiceConversations.js";
 import { listSharedDocuments } from "./services/caregiverDocuments.js";
+import {
+  getParentBackground,
+  getParentSchedule,
+  isValidScheduleRange,
+  resolveTimezone,
+} from "./services/parentContext.js";
 import { DatabaseConfigurationError, getPool } from "./db.js";
 import { scoreUnreviewedSchedule } from "./services/schedulePoints.js";
 import { signupSchema, loginSchema, backgroundNotesSchema } from "./schemas.js";
@@ -289,6 +295,62 @@ export function createApp() {
     } catch (error: unknown) {
       console.error("Failed to load latest changes", error);
       response.status(500).json({ error: "Unable to load recent changes" });
+    }
+  });
+
+  app.get("/api/parent/background", async (request, response) => {
+    const userId = parseUserId(request.query.userId);
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+
+    try {
+      const parentId = await getParentIdForUser(userId);
+      if (!parentId) {
+        response.status(404).json({ error: "No parent profile found for this user" });
+        return;
+      }
+
+      const background = await getParentBackground(parentId);
+      if (!background) {
+        response.status(404).json({ error: "No parent profile found for this user" });
+        return;
+      }
+
+      response.json(background);
+    } catch (error: unknown) {
+      console.error("Failed to load parent background", error);
+      response.status(500).json({ error: "Unable to load background information" });
+    }
+  });
+
+  app.get("/api/parent/schedule", async (request, response) => {
+    const userId = parseUserId(request.query.userId);
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+
+    if (!isValidScheduleRange(request.query.range)) {
+      response.status(400).json({ error: "range must be one of: today, tomorrow, week, upcoming" });
+      return;
+    }
+    const range = request.query.range;
+    const timezone = resolveTimezone(request.query.timezone);
+
+    try {
+      const parentId = await getParentIdForUser(userId);
+      if (!parentId) {
+        response.status(404).json({ error: "No parent profile found for this user" });
+        return;
+      }
+
+      const events = await getParentSchedule(parentId, range, timezone);
+      response.json({ range, timezone, events });
+    } catch (error: unknown) {
+      console.error("Failed to load parent schedule", error);
+      response.status(500).json({ error: "Unable to load schedule information" });
     }
   });
 

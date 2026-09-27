@@ -358,6 +358,64 @@
                 return { status: "error", message: "Could not retrieve recent changes right now." };
               }
             },
+            get_parent_background: async () => {
+              if (!user?.id) {
+                return { status: "error", message: "No logged-in parent found." };
+              }
+
+              try {
+                const apiResponse = await fetch(
+                  `http://localhost:3000/api/parent/background?userId=${encodeURIComponent(user.id)}`
+                );
+                if (!apiResponse.ok) {
+                  return { status: "error", message: "Could not retrieve background information right now." };
+                }
+
+                const data = await apiResponse.json();
+                if (data.status !== "ok" || !data.background) {
+                  return { status: "none", message: "Y.P.I.A does not currently have background information for you." };
+                }
+
+                return { status: "ok", name: data.name, background: data.background };
+              } catch {
+                return { status: "error", message: "Could not retrieve background information right now." };
+              }
+            },
+            get_parent_schedule: async ({ range } = {}) => {
+              if (!user?.id) {
+                return { status: "error", message: "No logged-in parent found." };
+              }
+
+              const allowedRanges = ["today", "tomorrow", "week", "upcoming"];
+              if (!allowedRanges.includes(range)) {
+                return { status: "error", message: "range must be one of: today, tomorrow, week, upcoming." };
+              }
+
+              let timezone = "America/Chicago";
+              try {
+                timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || timezone;
+              } catch {
+                // Keep the fallback.
+              }
+
+              try {
+                const apiResponse = await fetch(
+                  `http://localhost:3000/api/parent/schedule?userId=${encodeURIComponent(user.id)}&range=${encodeURIComponent(range)}&timezone=${encodeURIComponent(timezone)}`
+                );
+                if (!apiResponse.ok) {
+                  return { status: "error", message: "Could not retrieve schedule information right now." };
+                }
+
+                const data = await apiResponse.json();
+                if (!data.events || data.events.length === 0) {
+                  return { status: "none", message: "No schedule events were found for that time range.", range };
+                }
+
+                return { status: "ok", range, events: data.events };
+              } catch {
+                return { status: "error", message: "Could not retrieve schedule information right now." };
+              }
+            },
             create_caregiver_action: async ({ text } = {}) => {
               if (!user?.id) {
                 return { status: "error", message: "No logged-in parent found." };
