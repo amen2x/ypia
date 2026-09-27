@@ -8,11 +8,6 @@ def home():
     return render_template("index.html")
 
 
-@app.route("/parent")
-def parent_home():
-    return render_template("parent.html")
-
-
 @app.route("/login")
 def login():
     return render_template("login.html")
@@ -35,3 +30,4 @@ def signup_child():
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
+

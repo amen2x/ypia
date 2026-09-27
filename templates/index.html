@@ -110,7 +110,7 @@
     <h2 class="tag">Monthly Wellness Tracker</h2>
     <div class="card">
   <h1>Wellness Tracker</h1>
-<p class="sub"><span class="parent-name-echo">Susan</span>'s chart</p> 
+<p class="sub"><span class="parent-name-echo">Susan</span>'s chart <span class="readonly-badge" title="This chart is updated by the parent — it's read-only here">view only</span></p> 
   <div class="chart-wrap">
     <div class="day-labels">
       <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
@@ -118,12 +118,6 @@
     <div class="analyzeGrid" id="analyzeGrid"></div>
   </div>
  
-  <div class="log-day-row">
-    <label for="logDaySelect" class="log-day-label">Log a day for <span class="parent-name-echo">Susan</span>:</label>
-    <select id="logDaySelect"></select>
-    <select id="logMoodSelect"></select>
-    <button id="logDayBtn" type="button">Log</button>
-  </div>
  
   <div class="legend" id="legend"></div>
  
@@ -132,10 +126,31 @@
   </p>
  
   <div class="actions">
-    <button class="analyze" id="analyzeBtn">Analyze</button>
+    <button class="analyze" id="summarizeBtn" type ="button">Summary</button>
+     <button class="analyze" id="examineBtn" type ="button">Examine</button>
+
   </div>
  
 </div>
+
+<!-- how to examine the data as a parent -->
+
+<div class="modal-overlay" id="examineModal" hidden>
+    <div class="modal-box">
+      <button class="modal-close" id="examineModalClose" aria-label="Close">✕</button>
+      <h2>Why does <span class="parent-name-echo">Susan</span> show this status?</h2>
+      <div id="examineModalBody"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="summaryModal" hidden>
+    <div class="modal-box">
+      <button class="modal-close" id="summaryModalClose" aria-label="Close">✕</button>
+      <h2>Wellness summary for <span class="parent-name-echo">Susan</span></h2>
+      <p class="modal-subtext">Useful to bring to a doctor's appointment — patterns that are easy to miss day-to-day.</p>
+      <div id="summaryModalBody"></div>
+    </div>
+  </div>
   </div>
  
   <div class="box w-12 h-1">
@@ -212,7 +227,7 @@
  
  </div>
  
- <script>
+ <script> //mood board java
   // Keep every "echo" of the parent's name in sync with the single source of truth (#parent-name)
   (function syncParentName() {
     const source = document.getElementById('parent-name');
@@ -241,11 +256,13 @@
  
   const analyzeGrid = document.getElementById("analyzeGrid");
   const legend = document.getElementById("legend");
-  const analyzeBtn = document.getElementById("analyzeBtn");
   const moodAlertNote = document.getElementById("moodAlertNote");
-  const logDaySelect = document.getElementById("logDaySelect");
-  const logMoodSelect = document.getElementById("logMoodSelect");
-  const logDayBtn = document.getElementById("logDayBtn");
+   const examineBtn = document.getElementById("examineBtn");
+  const summarizeBtn = document.getElementById("summarizeBtn");
+  const examineModal = document.getElementById("examineModal");
+  const examineModalBody = document.getElementById("examineModalBody");
+  const summaryModal = document.getElementById("summaryModal");
+  const summaryModalBody = document.getElementById("summaryModalBody");
   const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
  
   // in-memory state: -1 = no mood set, otherwise index into moods[]
@@ -279,36 +296,7 @@
     const weekday = WEEKDAY_NAMES[(startWeekday + dayIndex) % 7];
     return `Day ${dayIndex + 1} — ${weekday}`;
   }
- 
-  // Fills the "log a day" day dropdown, defaulting to the first day with no mood logged yet
-  function populateLogDaySelect() {
-    const previousValue = logDaySelect.value;
-    logDaySelect.innerHTML = "";
-    for (let i = 0; i < daysInMonth; i++) {
-      const opt = document.createElement("option");
-      opt.value = String(i);
-      opt.textContent = dayLabel(i) + (state[i] >= 0 ? ` (${moods[state[i]].name})` : "");
-      logDaySelect.appendChild(opt);
-    }
-    const firstUnlogged = state.findIndex(m => m < 0);
-    if (previousValue && logDaySelect.querySelector(`option[value="${previousValue}"]`)) {
-      logDaySelect.value = previousValue;
-    } else if (firstUnlogged >= 0) {
-      logDaySelect.value = String(firstUnlogged);
-    }
-  }
- 
-  function populateLogMoodSelect() {
-    logMoodSelect.innerHTML = "";
-    moods.forEach((m, i) => {
-      const opt = document.createElement("option");
-      opt.value = String(i);
-      opt.textContent = m.name;
-      logMoodSelect.appendChild(opt);
-    });
-  }
- 
-  function renderLegend() {
+function renderLegend() {
     legend.innerHTML = "";
     moods.forEach(m => {
       const item = document.createElement("div");
@@ -317,6 +305,68 @@
       legend.appendChild(item);
     });
   }
+
+// Click-to-reveal info box for a day square. Stays open only while the
+// mouse is still over that square; moving off (or clicking elsewhere)
+// closes it.
+let activeDayInfoBox = null;
+
+function showDayInfo(cell, dayIndex) {
+  hideAllDayInfo();
+
+  const moodIndex = state[dayIndex];
+  const box = document.createElement("div");
+  box.className = "day-info-box";
+
+  if (moodIndex >= 0) {
+    const mood = moods[moodIndex];
+    const streak = findLongestLowMoodStreak();
+    const inStreak = streak.length >= LOW_MOOD_STREAK_LENGTH && dayIndex >= streak.start && dayIndex <= streak.end;
+    box.innerHTML = `
+      <div class="day-info-title">${dayLabel(dayIndex)}</div>
+      <div class="day-info-mood"><span class="swatch" style="background:${mood.color}"></span>${mood.name}</div>
+      ${moodIndex >= LOW_MOOD_THRESHOLD ? `<div class="day-info-note">Counts as a low-mood day</div>` : ""}
+      ${inStreak ? `<div class="day-info-note">Part of a ${streak.length}-day low-mood streak</div>` : ""}
+    `;
+  } else {
+    box.innerHTML = `
+      <div class="day-info-title">${dayLabel(dayIndex)}</div>
+      <div class="day-info-mood">Day is empty</div>
+    `;
+  }
+
+  document.body.appendChild(box);
+  positionDayInfo(box, cell);
+  activeDayInfoBox = box;
+}
+
+// Places the box above the clicked square, flips below if there's no room
+// above, and clamps left/right so it never runs off the screen edge.
+function positionDayInfo(box, cell) {
+  const rect = cell.getBoundingClientRect();
+  const margin = 8;
+  const boxRect = box.getBoundingClientRect();
+
+  let top = rect.top - boxRect.height - margin;
+  if (top < margin) {
+    top = rect.bottom + margin; // not enough room above — show below instead
+  }
+
+  let left = rect.left + rect.width / 2 - boxRect.width / 2;
+  left = Math.max(margin, Math.min(left, window.innerWidth - boxRect.width - margin));
+
+  box.style.top = `${top}px`;
+  box.style.left = `${left}px`;
+}
+
+function hideAllDayInfo() {
+  if (activeDayInfoBox) {
+    activeDayInfoBox.remove();
+    activeDayInfoBox = null;
+  }
+}
+
+document.addEventListener("click", hideAllDayInfo);
  
   function renderGrid() {
     analyzeGrid.innerHTML = "";
@@ -329,23 +379,22 @@
     }
  
     for (let i = 0; i < daysInMonth; i++) {
-      const cell = document.createElement("div");
-      cell.className = "day";
-      cell.title = "Day " + (i + 1);
- 
-      const moodIndex = state[i];
-      cell.style.background = moodIndex >= 0 ? moods[moodIndex].color : "";
- 
-      cell.addEventListener("click", () => {
-        state[i] = state[i] + 1;
-        if (state[i] >= moods.length) state[i] = -1; // cycle back to empty
-        renderGrid();
-      });
- 
-      analyzeGrid.appendChild(cell);
-    }
- 
-    populateLogDaySelect();
+  const cell = document.createElement("button");
+  cell.type = "button";
+  cell.className = "day";
+
+  const moodIndex = state[i];
+  cell.style.background = moodIndex >= 0 ? moods[moodIndex].color : "";
+  cell.setAttribute("aria-label", dayLabel(i));
+
+  cell.addEventListener("click", (e) => {
+    e.stopPropagation();
+    showDayInfo(cell, i);
+  });
+  cell.addEventListener("mouseleave", hideAllDayInfo);
+
+  analyzeGrid.appendChild(cell);
+}
     checkMentalHealthStreak();
   }
  
@@ -382,21 +431,183 @@
     }
   }
  
-  analyzeBtn.addEventListener("click", () => {
-    state = new Array(daysInMonth).fill(-1);
-    renderGrid(); //atm "analyze button" just resets the grid, but you can implement your own logic here
-  });
+  // ---- Helpers shared by both popups ----
  
-  logDayBtn.addEventListener("click", () => {
-    const dayIndex = parseInt(logDaySelect.value, 10);
-    const moodIndex = parseInt(logMoodSelect.value, 10);
-    if (Number.isNaN(dayIndex) || Number.isNaN(moodIndex)) return;
-    state[dayIndex] = moodIndex;
-    renderGrid(); // re-renders the chart, refreshes the dropdown, and re-runs the streak check
+  function loggedEntries() {
+    // [{ day, moodIndex }] for every day that actually has data, in day order
+    const entries = [];
+    for (let i = 0; i < daysInMonth; i++) {
+      if (state[i] >= 0) entries.push({ day: i, moodIndex: state[i] });
+    }
+    return entries;
+  }
+ 
+  // Looks at the most recent LOW_MOOD_STREAK_LENGTH-day window of *logged* days
+  // and turns it into a red/amber/green read plus a plain-English reason —
+  // this is what backs the "Examine Data" popup.
+  function computeStatus() {
+    const entries = loggedEntries();
+    if (entries.length === 0) {
+      return { color: '#999', label: 'No data yet', reason: `No mood data has been logged for ${parentName()} yet.` };
+    }
+ 
+    const recent = entries.slice(-7); // last 7 logged days
+    const avg = recent.reduce((sum, e) => sum + e.moodIndex, 0) / recent.length;
+ 
+    const streakInfo = findLongestLowMoodStreak();
+    let color, label;
+    if (streakInfo.length >= LOW_MOOD_STREAK_LENGTH || avg >= 3) {
+      color = '#ff6b6b'; label = 'Needs attention';
+    } else if (avg >= 1.75) {
+      color = '#ffd43b'; label = 'Mixed / okay';
+    } else {
+      color = '#39d353'; label = 'Doing well';
+    }
+ 
+    const recentNames = recent.map(e => moods[e.moodIndex].name);
+    let reason = `Based on the last ${recent.length} logged day${recent.length === 1 ? '' : 's'} (${recentNames.join(', ')}), the average mood is closest to "${moods[Math.round(avg)]?.name || recentNames[recentNames.length - 1]}."`;
+    if (streakInfo.length >= LOW_MOOD_STREAK_LENGTH) {
+      reason += ` There's also a ${streakInfo.length}-day run of low-mood entries from Day ${streakInfo.start + 1} to Day ${streakInfo.end + 1}, which is what triggered the check-in item on the checklist.`;
+    }
+    return { color, label, reason };
+  }
+ 
+  // Longest consecutive run (by day index) where every logged day in the run
+  // is >= LOW_MOOD_THRESHOLD. Gaps (unlogged days) break the run.
+  function findLongestLowMoodStreak() {
+    let curStart = -1, curLen = 0, bestStart = -1, bestLen = 0;
+    for (let i = 0; i < daysInMonth; i++) {
+      const m = state[i];
+      if (m >= LOW_MOOD_THRESHOLD) {
+        if (curLen === 0) curStart = i;
+        curLen++;
+        if (curLen > bestLen) { bestLen = curLen; bestStart = curStart; }
+      } else {
+        curLen = 0;
+      }
+    }
+    return { start: bestStart, end: bestStart + bestLen - 1, length: bestLen };
+  }
+ 
+  function parentName() {
+    return (document.getElementById('parent-name')?.textContent || 'your parent').trim();
+  }
+ 
+  // ---- Examine Data popup ----
+  function renderExamineModal() {
+    const status = computeStatus();
+    examineModalBody.innerHTML = `
+      <div class="status-explain">
+        <span class="status-dot" style="background:${status.color}"></span>
+        <strong>${status.label}</strong>
+      </div>
+      <p>${status.reason}</p>
+    `;
+  }
+ 
+  // ---- Summarize Data popup: a doctor-visit-ready report ----
+  function renderSummaryModal() {
+    const entries = loggedEntries();
+    const name = parentName();
+ 
+    if (entries.length === 0) {
+      summaryModalBody.innerHTML = `<p>No mood data has been logged yet — check back once ${name} has a few entries.</p>`;
+      return;
+    }
+ 
+    // Mood distribution
+    const counts = moods.map(() => 0);
+    entries.forEach(e => counts[e.moodIndex]++);
+    const distributionRows = moods.map((m, i) => `
+      <li><span class="swatch" style="background:${m.color}"></span> ${m.name}: ${counts[i]} day${counts[i] === 1 ? '' : 's'}</li>
+    `).join('');
+ 
+    // Longest low-mood streak
+    const streak = findLongestLowMoodStreak();
+ 
+    // Logging gaps — stretches of consecutive days with no entry at all.
+    // Easy to miss day-to-day, but useful context for a doctor (inconsistent tracking
+    // can itself be a signal, or just explain missing data around an appointment).
+    let gapCount = 0, longestGap = 0, curGap = 0;
+    for (let i = 0; i < daysInMonth; i++) {
+      if (state[i] < 0) {
+        curGap++;
+        if (curGap === 1) gapCount++;
+        longestGap = Math.max(longestGap, curGap);
+      } else {
+        curGap = 0;
+      }
+    }
+ 
+    // Day-of-week pattern — which weekday tends to run lowest, since that's
+    // rarely something anyone notices without the data laid out.
+    const weekdaySums = new Array(7).fill(0);
+    const weekdayCounts = new Array(7).fill(0);
+    entries.forEach(e => {
+      const wd = (startWeekday + e.day) % 7;
+      weekdaySums[wd] += e.moodIndex;
+      weekdayCounts[wd]++;
+    });
+    let worstWeekday = -1, worstAvg = -1;
+    for (let d = 0; d < 7; d++) {
+      if (weekdayCounts[d] === 0) continue;
+      const avg = weekdaySums[d] / weekdayCounts[d];
+      if (avg > worstAvg) { worstAvg = avg; worstWeekday = d; }
+    }
+ 
+    // Trend — first half of logged entries vs. second half.
+    const mid = Math.floor(entries.length / 2);
+    const firstHalfAvg = entries.slice(0, mid || 1).reduce((s, e) => s + e.moodIndex, 0) / (mid || 1);
+    const secondHalfAvg = entries.slice(mid).reduce((s, e) => s + e.moodIndex, 0) / (entries.length - mid);
+    let trendText;
+    if (entries.length < 4) {
+      trendText = "Not enough entries yet to tell if things are trending up or down.";
+    } else if (secondHalfAvg - firstHalfAvg > 0.4) {
+      trendText = "Mood has trended lower recently compared to earlier in the month.";
+    } else if (firstHalfAvg - secondHalfAvg > 0.4) {
+      trendText = "Mood has trended higher (better) recently compared to earlier in the month.";
+    } else {
+      trendText = "Mood has stayed fairly steady across the month.";
+    }
+ 
+    const overallAvg = entries.reduce((s, e) => s + e.moodIndex, 0) / entries.length;
+ 
+    summaryModalBody.innerHTML = `
+      <ul class="summary-list">
+        <li><strong>Days logged:</strong> ${entries.length} of ${daysInMonth}</li>
+        <li><strong>Overall average mood:</strong> closest to "${moods[Math.round(overallAvg)].name}"</li>
+        <li><strong>Trend:</strong> ${trendText}</li>
+        <li><strong>Longest low-mood streak:</strong> ${streak.length > 0 ? `${streak.length} day${streak.length === 1 ? '' : 's'} (Day ${streak.start + 1}–${streak.end + 1})` : 'None found'}</li>
+        <li><strong>Toughest day of the week:</strong> ${worstWeekday >= 0 ? `${WEEKDAY_NAMES[worstWeekday]} (avg leaning toward "${moods[Math.round(worstAvg)].name}")` : 'Not enough data'}</li>
+        <li><strong>Logging gaps:</strong> ${gapCount} gap${gapCount === 1 ? '' : 's'} in tracking, longest being ${longestGap} day${longestGap === 1 ? '' : 's'} with no entry</li>
+      </ul>
+      <h3 class="summary-subheading">Mood breakdown</h3>
+      <ul class="summary-list distribution-list">${distributionRows}</ul>
+      <p class="modal-footnote">Generated from ${name}'s wellness tracker — worth mentioning at the next appointment even if it doesn't feel urgent day-to-day.</p>
+    `;
+  }
+ 
+  function openModal(overlay) { overlay.hidden = false; }
+  function closeModal(overlay) { overlay.hidden = true; }
+ 
+  examineBtn.addEventListener("click", () => {
+    renderExamineModal();
+    openModal(examineModal);
+  });
+  summarizeBtn.addEventListener("click", () => {
+    renderSummaryModal();
+    openModal(summaryModal);
+  });
+  document.getElementById("examineModalClose").addEventListener("click", () => closeModal(examineModal));
+  document.getElementById("summaryModalClose").addEventListener("click", () => closeModal(summaryModal));
+  [examineModal, summaryModal].forEach(overlay => {
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeModal(overlay); // click on the dimmed backdrop
+    });
   });
  
   renderLegend();
-  populateLogMoodSelect();
+  document.addEventListener("click", hideAllDayInfo);
   renderGrid();
  
  
