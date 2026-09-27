@@ -111,6 +111,7 @@
 
         <div class="update-section">
           <h3 class="section-heading">📋 Past events</h3>
+          <p id="pastPointsSummary" class="schedule-points-status" hidden></p>
           <div class="appointment-list scroll-list scroll-list--short" id="pastEventsList" tabindex="0" aria-label="Past events">
             <p class="muted-note">Loading events...</p>
           </div>
@@ -560,6 +561,38 @@ function renderEvents(container, events, emptyMessage, parentId = activeParentId
   });
 }
 
+// Adds up the last 7 days of past events, e.g.
+// "Last 7 days: 400 of 500 points earned · 4 of 5 events attended".
+function renderPointsSummary(pastEvents) {
+  const summary = document.getElementById("pastPointsSummary");
+  if (!summary) return;
+
+  const since = new Date();
+  since.setHours(0, 0, 0, 0);
+  since.setDate(since.getDate() - 7);
+  const recent = (Array.isArray(pastEvents) ? pastEvents : [])
+    .filter((event) => new Date(event.start_time) >= since);
+
+  if (recent.length === 0) {
+    summary.hidden = true;
+    return;
+  }
+
+  const attended = recent.filter((event) => event.attendance_status === "attended").length;
+  const scored = recent.filter((event) => event.point_value != null);
+  const attendedText = `${attended} of ${recent.length} events attended`;
+
+  if (scored.length === 0) {
+    summary.textContent = `Last 7 days: ${attendedText} · press "Review points with Gemini" to score them`;
+  } else {
+    const earned = scored.reduce((sum, event) =>
+      sum + (event.points_earned ?? (event.attendance_status === "attended" ? event.point_value : 0)), 0);
+    const possible = scored.reduce((sum, event) => sum + event.point_value, 0);
+    summary.textContent = `Last 7 days: ${earned} of ${possible} points earned · ${attendedText}`;
+  }
+  summary.hidden = false;
+}
+
 async function loadSchedule(parentId) {
   activeParentId = parentId;
   const upcoming = document.getElementById("upcomingEventsList");
@@ -578,6 +611,7 @@ async function loadSchedule(parentId) {
     // Limit upcoming events to a maximum of 5
     renderEvents(upcoming, upcomingEvents.slice(0, 5), "No upcoming events scheduled.", parentId);
     renderEvents(past, pastEvents, "No past events yet.", parentId);
+    renderPointsSummary(pastEvents);
   } catch (error) {
     console.error("Failed to load parent schedule:", error);
     renderEvents(upcoming, [], "Unable to load upcoming events right now.");
@@ -833,12 +867,12 @@ document.getElementById("scoreCalendarBtn")?.addEventListener("click", reviewSch
   })();
  
   const moods = [ //up to you guys if you want to change or not 
-    { name: "Great",   color: "#39d353" },
-    { name: "Good",    color: "#26a641" },
-    { name: "Okay",    color: "#ffd43b" },
+    { name: "Great",   color: "#2b8a3e" },
+    { name: "Good",    color: "#8ce99a" },
+    { name: "Okay",    color: "#ffe066" },
     { name: "Meh",     color: "#ffa94d" },
-    { name: "Bad",     color: "#ff6b6b" },
-    { name: "Rough",   color: "#9775fa" }
+    { name: "Bad",     color: "#f03e3e" },
+    { name: "Rough",   color: "#a61e1e" }
   ];
  
   // Mood indices 3-5 (Meh, Bad, Rough) count as "low mood" days for the check-in alert below.
@@ -846,8 +880,10 @@ document.getElementById("scoreCalendarBtn")?.addEventListener("click", reviewSch
   const LOW_MOOD_STREAK_LENGTH = 4;
   const MENTAL_HEALTH_ITEM_ID = 'auto-mental-health-checkin';
  
-  const daysInMonth = 31; // adjust if you want a shorter month
-  const startWeekday = 0; // 0 = Sunday, adjust so day 1 lands on the right column
+  // This month's real calendar: how many days, and which weekday day 1 falls on.
+  const trackerToday = new Date();
+  const daysInMonth = new Date(trackerToday.getFullYear(), trackerToday.getMonth() + 1, 0).getDate();
+  const startWeekday = new Date(trackerToday.getFullYear(), trackerToday.getMonth(), 1).getDay(); // 0 = Sunday
  
   const analyzeGrid = document.getElementById("analyzeGrid");
   const legend = document.getElementById("legend");
