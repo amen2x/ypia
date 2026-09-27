@@ -130,7 +130,7 @@ header {
     align-self: flex-start;
     font-size: 0.72rem;
     color: #000000;
-    background: #dfdf80;
+    background: hsl(60, 60%, 69%);
     padding: 0.15rem 0.5rem;
     border-radius: 999px;
 }
@@ -252,7 +252,7 @@ code {
 .action-items {
     min-width: 0;
     background: var(--surface);
-    border: 2px solid #fbf9e5;
+    border: 2px solid hsl(0, 0%, 0%);
     border-radius: var(--radius);
     padding: 1.1rem 1.25rem;
     position: sticky;
@@ -422,7 +422,7 @@ action-items:hover {
 
 .wheel-fg {
     fill: none;
-    stroke: var(--accent);
+    stroke: #703edd;
     stroke-width: 3;
     stroke-linecap: round;
     stroke-dasharray: 0, 100;
