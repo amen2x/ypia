@@ -252,7 +252,7 @@ code {
 .action-items {
     min-width: 0;
     background: var(--surface);
-    border: 2px solid #a31d1d;
+    border: 2px solid #fbf9e5;
     border-radius: var(--radius);
     padding: 1.1rem 1.25rem;
     position: sticky;
@@ -387,18 +387,27 @@ action-items:hover {
 
 .action-items-header {
     display: flex;
+    flex-direction: column;
+    /* was: default row */
     align-items: center;
-    justify-content: space-between;
     gap: 0.5rem;
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.75rem;
+    text-align: center;
+}
+
+.action-items-header h2 {
+    margin: 0;
 }
 
 .completion-wheel {
     position: relative;
-    width: 44px;
-    height: 44px;
+    width: 96px;
+    /* was: 44px */
+    height: 96px;
+    /* was: 44px */
     flex-shrink: 0;
 }
+
 
 .wheel-svg {
     width: 100%;
@@ -426,7 +435,8 @@ action-items:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.6rem;
+    font-size: 1.1rem;
+    /* was: 0.6rem */
     font-weight: 700;
     color: var(--ink);
 }
@@ -519,6 +529,20 @@ action-items:hover {
 
 .upload-btn {
     justify-self: end;
+    background: #000;
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.upload-btn:hover {
+    background: #2b96c0;
+    color: #ede0b9;
 }
 
 .profile-image {

@@ -978,8 +978,8 @@ const wheelFg = document.getElementById("wheelFg");
 const wheelLabel = document.getElementById("wheelLabel");
 
 function updateCompletionWheel() {
-    const percent = totalItemCount > 0 ? Math.round((completedItemCount / totalItemCount) * 100) : 0;
-    if (wheelFg) wheelFg.setAttribute("stroke-dasharray", `${percent}, 100`);
+     const percent = totalItemCount > 0 ? Math.round((completedItemCount / totalItemCount) * 100) : 0;
+    if (wheelFg) wheelFg.style.strokeDasharray = `${percent}, 100`;
     if (wheelLabel) wheelLabel.textContent = `${percent}%`;
 }
 updateCompletionWheel();
