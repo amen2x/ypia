@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { z } from "zod";
 import { getPool } from "../db.js";
 
@@ -49,8 +49,12 @@ const MEMORY_SLOTS = new Set([1, 5, 10]);
 
 // Same models as services/gemini.ts: if one is busy, try the next.
 const GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"];
-// The whole Gemini attempt must finish within this time, or backup questions are used.
-const GEMINI_TIME_LIMIT_MS = 9000;
+// Gemini works in the background (nobody is waiting), so it gets plenty of time.
+const GEMINI_TIME_LIMIT_MS = 30000;
+// How long trivia waits for Gemini questions that are almost ready.
+const WAIT_FOR_READY_MS = 4000;
+// How many interest questions to prepare ahead for each parent.
+const PREPARE_COUNT = 10;
 
 const GENERIC_APPOINTMENTS = ["Dentist check-up", "Eye exam", "Physical therapy", "Hearing test"];
 
@@ -324,26 +328,36 @@ async function askGemini(parent: TriviaParent, inputs: TriviaInputs, count: numb
   for (const model of GEMINI_MODELS) {
     const timeLeft = deadline - Date.now();
     if (timeLeft < 1000) break;
-    try {
-      const response = await withTimeLimit(
-        client.models.generateContent({
-          model,
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          config: {
-            responseMimeType: "application/json",
-            responseJsonSchema: triviaJsonSchema,
-            temperature: 0.9,
-            abortSignal: AbortSignal.timeout(timeLeft),
-          },
-        }),
-        timeLeft,
-      );
-      const drafts = parseGeminiTrivia(response.text, inputs.recentQuestions);
-      if (drafts.length > 0) return drafts;
-      console.warn(`Trivia: ${model} gave no usable questions`);
-    } catch (error: unknown) {
-      const message = (error instanceof Error ? error.message : "unknown error").replaceAll(apiKey, "[redacted]");
-      console.warn(`Trivia: ${model} failed (${message})`);
+    // Trivia doesn't need Gemini's deep "thinking", so we turn it down to answer faster.
+    // If a model doesn't accept that setting, we ask the same model again without it.
+    for (const lowThinking of [true, false]) {
+      const timeLeftNow = deadline - Date.now();
+      if (timeLeftNow < 1000) break;
+      try {
+        const response = await withTimeLimit(
+          client.models.generateContent({
+            model,
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            config: {
+              responseMimeType: "application/json",
+              responseJsonSchema: triviaJsonSchema,
+              temperature: 0.9,
+              ...(lowThinking ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } } : {}),
+              abortSignal: AbortSignal.timeout(timeLeftNow),
+            },
+          }),
+          timeLeftNow,
+        );
+        const drafts = parseGeminiTrivia(response.text, inputs.recentQuestions);
+        if (drafts.length > 0) return drafts;
+        console.warn(`Trivia: ${model} gave no usable questions`);
+        break;
+      } catch (error: unknown) {
+        const message = (error instanceof Error ? error.message : "unknown error").replaceAll(apiKey, "[redacted]");
+        console.warn(`Trivia: ${model} failed (${message})`);
+        const status = (error as { status?: unknown }).status;
+        if (!(lowThinking && status === 400)) break; // only retry when the setting was refused
+      }
     }
   }
   return [];
@@ -464,10 +478,6 @@ export function pickBackupQuestions(count: number, interestText: string, avoid: 
     .map((q) => makeDraft(q.topic, q.question, q.answer, q.wrong));
 }
 
-// ---------------------------------------------------------------------
-// 4. Put the 10 questions together
-// ---------------------------------------------------------------------
-
 // "A few questions ago you were asked ... What was the right answer?"
 function recallQuestion(n: number, earlier: TriviaQuestion): TriviaQuestion {
   const correct = earlier.choices[earlier.answerIndex];
@@ -482,6 +492,58 @@ function recallQuestion(n: number, earlier: TriviaQuestion): TriviaQuestion {
   };
 }
 
+// ---------------------------------------------------------------------
+// 4. Getting Gemini questions ready ahead of time
+// Trivia never waits on Gemini. After each game (and when she opens the
+// games menu) we quietly ask Gemini for the next game's questions and keep
+// them here. If the server restarts, this is empty and backups are used
+// until Gemini's next answer arrives.
+// ---------------------------------------------------------------------
+
+const readyQuestions = new Map<string, Draft[]>();   // parent id -> Gemini questions ready to use
+const preparing = new Map<string, Promise<void>>();  // parent id -> Gemini request in progress
+
+export function prepareTrivia(parent: TriviaParent): "ready" | "preparing" {
+  if ((readyQuestions.get(parent.id)?.length ?? 0) >= TOTAL_QUESTIONS - MEMORY_SLOTS.size + 1) return "ready";
+  if (!preparing.has(parent.id)) {
+    const job = (async () => {
+      try {
+        const inputs = await loadInputs(parent.id);
+        const drafts = await askGemini(parent, inputs, PREPARE_COUNT);
+        if (drafts.length > 0) readyQuestions.set(parent.id, drafts);
+      } catch (error: unknown) {
+        console.warn("Trivia: preparing questions failed:", error instanceof Error ? error.message : error);
+      } finally {
+        preparing.delete(parent.id);
+      }
+    })();
+    preparing.set(parent.id, job);
+  }
+  return "preparing";
+}
+
+// Takes the prepared Gemini questions (skipping any she saw recently).
+// If Gemini is almost done, waits a few seconds for it.
+async function takeReadyQuestions(parentId: string, avoid: Set<string>): Promise<Draft[]> {
+  const inProgress = preparing.get(parentId);
+  if (!readyQuestions.has(parentId) && inProgress) {
+    await Promise.race([inProgress, new Promise((resolve) => setTimeout(resolve, WAIT_FOR_READY_MS))]);
+  }
+  const drafts = readyQuestions.get(parentId) ?? [];
+  readyQuestions.delete(parentId);
+  const seen = new Set(avoid);
+  return drafts.filter((draft) => {
+    const key = normalize(draft.question);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+// ---------------------------------------------------------------------
+// 5. Put the 10 questions together
+// ---------------------------------------------------------------------
+
 export async function buildTrivia(parent: TriviaParent): Promise<Trivia> {
   const inputs = await loadInputs(parent.id);
 
@@ -491,10 +553,9 @@ export async function buildTrivia(parent: TriviaParent): Promise<Trivia> {
     : inputs.facts.slice(0, 3);
   const interestNeeded = TOTAL_QUESTIONS - MEMORY_SLOTS.size + (memory.length === 0 ? 1 : 0);
 
-  // Interest questions: Gemini first (a few extra in case some are bad), then backup.
+  // Interest questions: the Gemini questions prepared ahead, then backup.
   const avoid = new Set([...inputs.recentQuestions, ...memory.map((draft) => normalize(draft.question))]);
-  const fromGemini = (await askGemini(parent, { ...inputs, recentQuestions: avoid }, interestNeeded + 2))
-    .slice(0, interestNeeded);
+  const fromGemini = (await takeReadyQuestions(parent.id, avoid)).slice(0, interestNeeded);
   for (const draft of fromGemini) avoid.add(normalize(draft.question));
   const interestText = [parent.background_notes ?? "", ...inputs.topics].join(" ");
   const fromBackup = pickBackupQuestions(interestNeeded - fromGemini.length, interestText, avoid);
@@ -524,6 +585,8 @@ export async function buildTrivia(parent: TriviaParent): Promise<Trivia> {
     if (!next) throw new Error("Could not build enough trivia questions");
     questions.push({ n, kind: "interest", ...next });
   }
+
+  prepareTrivia(parent); // start getting the next game's questions ready
 
   const source = fromGemini.length === 0 ? "backup" : fromGemini.length === interestNeeded ? "gemini" : "mixed";
   return { questions, source };

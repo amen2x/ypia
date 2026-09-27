@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { DatabaseConfigurationError } from "./db.js";
-import { buildTrivia } from "./services/trivia.js";
+import { buildTrivia, prepareTrivia } from "./services/trivia.js";
 import {
   GameError,
   getTrend,
@@ -15,6 +15,7 @@ import {
 // Game routes. Like login, the page sends the logged-in user's id
 // (from localStorage "ypia_user") with every request.
 //
+//   POST /api/trivia/prepare { userId }                    -> starts Gemini early (games menu)
 //   POST /api/trivia/new     { userId }                    -> 10 questions
 //   POST /api/games/result   { userId, game, ... }         -> saves a game
 //   POST /api/trivia/survey  { userId, gameResultId, ... } -> saves the survey
@@ -126,6 +127,13 @@ function handle(route: (request: Request, response: Response) => Promise<void>) 
 }
 
 // ----- routes -----
+
+// Called when she opens the games menu, so Gemini can start on her questions.
+gameRoutes.post("/api/trivia/prepare", handle(async (request, response) => {
+  const input = parse(newTriviaSchema, request.body);
+  const parent = await requirePlayer(input.userId);
+  response.status(202).json({ status: prepareTrivia(parent) });
+}));
 
 gameRoutes.post("/api/trivia/new", handle(async (request, response) => {
   const input = parse(newTriviaSchema, request.body);
