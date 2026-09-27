@@ -136,7 +136,9 @@
 
     const voiceButton = document.getElementById("voiceButton");
     const voiceStatus = document.getElementById("voiceStatus");
+    const user = JSON.parse(localStorage.getItem("ypia_user") || "null");
     let conversation = null;
+    let activeConversationId = null;
 
     function setStatus(text) {
       voiceStatus.textContent = text;
@@ -144,8 +146,33 @@
 
     function reset() {
       conversation = null;
+      activeConversationId = null;
       voiceButton.disabled = false;
       setStatus("Tap to talk");
+    }
+
+    async function registerConversation(userId, conversationId) {
+      try {
+        await fetch("http://localhost:3000/api/parent/voice-conversations/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId, conversationId }),
+        });
+      } catch {
+        // Non-fatal: the conversation can still be synced later if this retries.
+      }
+    }
+
+    async function syncConversation(userId, conversationId) {
+      try {
+        await fetch("http://localhost:3000/api/parent/voice-conversations/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId, conversationId }),
+        });
+      } catch {
+        // Non-fatal: the conversation mapping is already saved and can be retried later.
+      }
     }
 
     async function startConversation() {
@@ -164,8 +191,6 @@
         const response = await fetch("http://localhost:3000/api/elevenlabs/signed-url");
         if (!response.ok) throw new Error("signed-url request failed");
         const { signedUrl } = await response.json();
-
-        const user = JSON.parse(localStorage.getItem("ypia_user") || "null");
 
         conversation = await Conversation.startSession({
           signedUrl,
@@ -249,6 +274,40 @@
                 return { status: "error", message: "Could not retrieve recent changes right now." };
               }
             },
+            create_caregiver_action: async ({ text } = {}) => {
+              if (!user?.id) {
+                return { status: "error", message: "No logged-in parent found." };
+              }
+              if (!text || typeof text !== "string" || !text.trim()) {
+                return { status: "error", message: "No request text was provided." };
+              }
+
+              try {
+                const apiResponse = await fetch("http://localhost:3000/api/parent/caregiver-actions", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    userId: user.id,
+                    text: text.trim(),
+                    conversationId: activeConversationId,
+                  }),
+                });
+
+                if (!apiResponse.ok) {
+                  return { status: "error", message: "Could not send that request to your caregiver right now." };
+                }
+
+                return { status: "ok" };
+              } catch {
+                return { status: "error", message: "Could not send that request to your caregiver right now." };
+              }
+            },
+          },
+          onConnect: ({ conversationId }) => {
+            activeConversationId = conversationId;
+            if (user?.id && conversationId) {
+              registerConversation(user.id, conversationId);
+            }
           },
           onDisconnect: reset,
           onModeChange: ({ mode }) => setStatus(mode === "speaking" ? "Speaking..." : "Listening..."),
@@ -270,10 +329,14 @@
 
     async function endConversation() {
       voiceButton.disabled = true;
+      const conversationIdToSync = activeConversationId;
       try {
         await conversation?.endSession();
       } finally {
         reset();
+        if (user?.id && conversationIdToSync) {
+          syncConversation(user.id, conversationIdToSync);
+        }
       }
     }
 

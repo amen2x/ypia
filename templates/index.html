@@ -972,6 +972,8 @@ document.addEventListener("click", hideAllDayInfo);
 <script>
 (function () {
     const list = document.getElementById('actionList');
+    const CAREGIVER_API_BASE = window.location.port === "3000" ? "" : "http://localhost:3000";
+    const caregiverUser = JSON.parse(localStorage.getItem("ypia_user") || "null");
     let totalItemCount = list.children.length; // counts whatever's already in the list on load
 let completedItemCount = 0;
 const wheelFg = document.getElementById("wheelFg");
@@ -1025,15 +1027,51 @@ function addActionItem(id, text, urgency = "medium", dateStr) {
 }
    window.addActionItem = addActionItem;
  
+    async function markCaregiverActionDone(actionId) {
+    if (!caregiverUser?.id) return false;
+    try {
+        const res = await fetch(`${CAREGIVER_API_BASE}/api/caregiver/actions/${encodeURIComponent(actionId)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: caregiverUser.id, status: "done" })
+        });
+        return res.ok;
+    } catch (err) {
+        console.error("Failed to mark caregiver action done:", err);
+        return false;
+    }
+}
+
+function completeItem(item) {
+    item.classList.add("checked");
+    completedItemCount++;
+    updateCompletionWheel(); // brief strikethrough
+    setTimeout(() => item.remove(), 200);
+}
+
     // Checkbox strike-through
     list.addEventListener("change", (e) => {
-    if (e.target.matches('input[type="checkbox"]') && e.target.checked) {
-       const item = e.target.closest(".action-item");
-        item.classList.add("checked");
-        completedItemCount++;
-        updateCompletionWheel(); // brief strikethrough
-        setTimeout(() => item.remove(), 200);
+    if (!e.target.matches('input[type="checkbox"]') || !e.target.checked) return;
+
+    const item = e.target.closest(".action-item");
+    const actionId = item.dataset.actionId;
+
+    if (!actionId) {
+        completeItem(item);
+        return;
     }
+
+    // DB-backed action: only mark complete once the server confirms the update.
+    const checkbox = e.target;
+    checkbox.disabled = true;
+    markCaregiverActionDone(actionId).then((ok) => {
+        if (ok) {
+            completeItem(item);
+        } else {
+            checkbox.checked = false;
+            checkbox.disabled = false;
+        }
+    });
 });
 
     function insertItemSorted(item) {
@@ -1106,6 +1144,41 @@ function addActionItem(id, text, urgency = "medium", dateStr) {
         const select = item.querySelector('.urgency-select');
         if (select) select.value = item.dataset.urgency || 'medium';
     });
+
+    // Live caregiver actions from Tiger Data (e.g. created by Yupia through voice).
+    // Rendered through the same window.addActionItem(...) helper as everything else,
+    // so drag/urgency/calendar/checkbox behavior above applies to these unchanged.
+    function buildCaregiverActionLabel(action) {
+        return action.source === "voice" ? `${action.text} — via Yupia` : action.text;
+    }
+
+    async function loadCaregiverActions() {
+        if (!caregiverUser?.id) return;
+        try {
+            const res = await fetch(`${CAREGIVER_API_BASE}/api/caregiver/actions?userId=${encodeURIComponent(caregiverUser.id)}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            const actions = Array.isArray(data.actions) ? data.actions : [];
+
+            actions
+                .filter((action) => action.status === "open")
+                .forEach((action) => {
+                    const domId = `db-action-${action.id}`;
+                    if (document.getElementById(domId)) return;
+                    addActionItem(domId, buildCaregiverActionLabel(action), "medium", undefined);
+                    const item = document.getElementById(domId);
+                    if (item) item.dataset.actionId = action.id;
+                });
+        } catch (err) {
+            console.error("Failed to load caregiver actions:", err);
+        }
+    }
+
+    loadCaregiverActions();
+    setInterval(() => {
+        if (document.visibilityState === "hidden") return;
+        loadCaregiverActions();
+    }, 10000);
 })();
  
 document.getElementById('addItemBtn').addEventListener('click', addNewItem);

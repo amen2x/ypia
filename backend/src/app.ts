@@ -7,11 +7,36 @@ import multer from "multer";
 import { extractDocument } from "./services/documentExtractor.js";
 import { normalizeMedications } from "./services/normalizeMedications.js";
 import { createAccount, verifyLogin, AuthError } from "./services/auth.js";
-import { getParentIdForUser, getNextAppointment, getCurrentMedications } from "./services/parentInfo.js";
+import {
+  getParentIdForUser,
+  getNextAppointment,
+  getCurrentMedications,
+  getApprovedParentIdsForCaregiver,
+} from "./services/parentInfo.js";
 import { saveDocumentExtraction, getLatestChanges } from "./services/documentHistory.js";
+import {
+  createCaregiverAction,
+  listCaregiverActions,
+  updateActionStatus,
+  getActionConversation,
+} from "./services/caregiverActions.js";
+import { registerVoiceConversation, syncVoiceConversation } from "./services/voiceConversations.js";
 import { DatabaseConfigurationError, getPool } from "./db.js";
 import { signupSchema, loginSchema, backgroundNotesSchema } from "./schemas.js";
 import { gameRoutes } from "./gameRoutes.js";
+
+const MAX_ACTION_TEXT_LENGTH = 500;
+
+function parseActionText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.length > MAX_ACTION_TEXT_LENGTH) return null;
+  return trimmed;
+}
+
+function parseOptionalConversationId(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
 
 const upload = multer({ storage: multer.memoryStorage() });
 const backgroundUpload = multer({
@@ -268,6 +293,170 @@ export function createApp() {
     } catch (error: unknown) {
       console.error("Failed to load latest changes", error);
       response.status(500).json({ error: "Unable to load recent changes" });
+    }
+  });
+
+  app.post("/api/parent/caregiver-actions", async (request, response) => {
+    const userId = parseUserId((request.body as Record<string, unknown> | undefined)?.userId);
+    const text = parseActionText((request.body as Record<string, unknown> | undefined)?.text);
+    const conversationId = parseOptionalConversationId(
+      (request.body as Record<string, unknown> | undefined)?.conversationId
+    );
+
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+    if (!text) {
+      response.status(400).json({ error: "text is required and must be 500 characters or fewer" });
+      return;
+    }
+
+    try {
+      const parentId = await getParentIdForUser(userId);
+      if (!parentId) {
+        response.status(404).json({ error: "No parent profile found for this user" });
+        return;
+      }
+
+      const action = await createCaregiverAction({
+        parentId,
+        createdByUserId: userId,
+        text,
+        conversationId,
+      });
+
+      response.status(201).json({ status: "created", action });
+    } catch (error: unknown) {
+      console.error("Failed to create caregiver action", error);
+      response.status(500).json({ error: "Unable to create caregiver action" });
+    }
+  });
+
+  app.post("/api/parent/voice-conversations/register", async (request, response) => {
+    const userId = parseUserId((request.body as Record<string, unknown> | undefined)?.userId);
+    const conversationId = parseOptionalConversationId(
+      (request.body as Record<string, unknown> | undefined)?.conversationId
+    );
+
+    if (!userId || !conversationId) {
+      response.status(400).json({ error: "userId and conversationId are required" });
+      return;
+    }
+
+    try {
+      const parentId = await getParentIdForUser(userId);
+      if (!parentId) {
+        response.status(404).json({ error: "No parent profile found for this user" });
+        return;
+      }
+
+      await registerVoiceConversation(parentId, conversationId);
+      response.status(201).json({ status: "registered" });
+    } catch (error: unknown) {
+      console.error("Failed to register voice conversation", error);
+      response.status(500).json({ error: "Unable to register conversation" });
+    }
+  });
+
+  app.post("/api/parent/voice-conversations/sync", async (request, response) => {
+    const userId = parseUserId((request.body as Record<string, unknown> | undefined)?.userId);
+    const conversationId = parseOptionalConversationId(
+      (request.body as Record<string, unknown> | undefined)?.conversationId
+    );
+
+    if (!userId || !conversationId) {
+      response.status(400).json({ error: "userId and conversationId are required" });
+      return;
+    }
+
+    try {
+      const parentId = await getParentIdForUser(userId);
+      if (!parentId) {
+        response.status(404).json({ error: "No parent profile found for this user" });
+        return;
+      }
+
+      const syncStatus = await syncVoiceConversation(parentId, conversationId);
+      if (syncStatus === "not_owned") {
+        response.status(404).json({ error: "Conversation is not registered to this user" });
+        return;
+      }
+      if (syncStatus === "unavailable") {
+        response.status(502).json({ status: "unavailable", error: "ElevenLabs did not return conversation details" });
+        return;
+      }
+
+      response.json({ status: syncStatus });
+    } catch (error: unknown) {
+      console.error("Failed to sync voice conversation", error);
+      response.status(500).json({ error: "Unable to sync conversation" });
+    }
+  });
+
+  app.get("/api/caregiver/actions", async (request, response) => {
+    const userId = parseUserId(request.query.userId);
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+
+    try {
+      const parentIds = await getApprovedParentIdsForCaregiver(userId);
+      const actions = await listCaregiverActions(parentIds);
+      response.json({ actions });
+    } catch (error: unknown) {
+      console.error("Failed to load caregiver actions", error);
+      response.status(500).json({ error: "Unable to load caregiver actions" });
+    }
+  });
+
+  app.patch("/api/caregiver/actions/:id", async (request, response) => {
+    const userId = parseUserId((request.body as Record<string, unknown> | undefined)?.userId);
+    const statusValue = (request.body as Record<string, unknown> | undefined)?.status;
+    const status = statusValue === "open" || statusValue === "done" ? statusValue : null;
+
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+    if (!status) {
+      response.status(400).json({ error: "status must be 'open' or 'done'" });
+      return;
+    }
+
+    try {
+      const updated = await updateActionStatus({ actionId: request.params.id, userId, status });
+      if (!updated) {
+        response.status(404).json({ error: "Action not found" });
+        return;
+      }
+
+      response.json({ status: "updated", action: updated });
+    } catch (error: unknown) {
+      console.error("Failed to update caregiver action", error);
+      response.status(500).json({ error: "Unable to update caregiver action" });
+    }
+  });
+
+  app.get("/api/caregiver/actions/:id/conversation", async (request, response) => {
+    const userId = parseUserId(request.query.userId);
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+
+    try {
+      const result = await getActionConversation(request.params.id, userId);
+      if (!result) {
+        response.status(404).json({ error: "Action not found" });
+        return;
+      }
+
+      response.json(result);
+    } catch (error: unknown) {
+      console.error("Failed to load action conversation", error);
+      response.status(500).json({ error: "Unable to load conversation" });
     }
   });
 

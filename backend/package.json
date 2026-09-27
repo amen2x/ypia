@@ -8,6 +8,7 @@
     "test-pipeline": "node --env-file=.env --import tsx src/testPipeline.ts",
     "test-reconcile": "tsx src/testReconcileCareState.ts",
     "test-care-update": "tsx src/testProcessCareUpdate.ts",
+    "test-voice-serialization": "tsx src/testVoiceConversationsSerialization.ts",
     "start": "node --watch --env-file=.env --import tsx src/server.ts"
   },
   "dependencies": {

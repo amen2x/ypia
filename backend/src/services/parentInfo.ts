@@ -22,6 +22,15 @@ export async function getParentIdForUser(userId: string): Promise<string | null>
   return result.rows[0]?.id ?? null;
 }
 
+export async function getApprovedParentIdsForCaregiver(userId: string): Promise<string[]> {
+  const pool = getPool();
+  const result = await pool.query<{ parent_id: string }>(
+    "SELECT parent_id FROM parent_relationships WHERE user_id = $1 AND status = 'approved'",
+    [userId]
+  );
+  return result.rows.map((row) => row.parent_id);
+}
+
 export async function getNextAppointment(parentId: string): Promise<NextAppointment | null> {
   const pool = getPool();
   const result = await pool.query<{
