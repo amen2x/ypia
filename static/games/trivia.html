@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trivia | Y.P.I.A</title>
+  <link rel="stylesheet" href="games.css">
+</head>
+<body>
+  <main class="page">
+    <div class="topbar">
+      <span class="brand">Y.P.I.A · Trivia</span>
+      <button type="button" class="link-button" id="stopButton" hidden>Stop game</button>
+      <a href="index.html" id="backLink">Back to games</a>
+    </div>
+
+    <!-- trivia.js fills this box with the current screen -->
+    <div id="app" class="card" aria-live="polite">
+      <p class="big center">Getting your questions ready…</p>
+    </div>
+  </main>
+
+  <script src="common.js"></script>
+  <script src="trivia.js"></script>
+</body>
+</html>

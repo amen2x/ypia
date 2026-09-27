@@ -10,6 +10,7 @@ import { createAccount, verifyLogin, AuthError } from "./services/auth.js";
 import { getParentIdForUser, getNextAppointment, getCurrentMedications } from "./services/parentInfo.js";
 import { DatabaseConfigurationError } from "./db.js";
 import { signupSchema, loginSchema } from "./schemas.js";
+import { gameRoutes } from "./gameRoutes.js";
 
 const upload = multer({ storage: multer.memoryStorage() });
 const ALLOWED_ORIGINS = ["http://localhost:5000", "http://127.0.0.1:5000"];
@@ -175,7 +176,7 @@ export function createApp() {
       next(error);
     }
   });
-
+  app.use(gameRoutes);
   app.use(errorHandler);
   return app;
 }

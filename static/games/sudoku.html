@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sudoku | Y.P.I.A</title>
+  <link rel="stylesheet" href="games.css">
+</head>
+<body>
+  <main class="page">
+    <div class="topbar">
+      <span class="brand">Y.P.I.A · Sudoku</span>
+      <button type="button" class="link-button" id="stopButton" hidden>Stop game</button>
+      <a href="index.html" id="backLink">Back to games</a>
+    </div>
+
+    <!-- sudoku.js fills this box -->
+    <div id="app" class="card" aria-live="polite">
+      <p class="big center">Getting your puzzle ready…</p>
+    </div>
+  </main>
+
+  <script src="common.js"></script>
+  <script src="sudoku.js"></script>
+</body>
+</html>

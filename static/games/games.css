@@ -1,0 +1,271 @@
+/* Shared look for the game pages. Same green as the parent home page.
+   Made for older eyes and hands: big text, big buttons, strong contrast. */
+
+:root {
+  --green: #2e7d32;
+  --green-dark: #1f5723;
+  --green-soft: #e3f1e4;
+  --ink: #1b2a1e;
+  --muted: #4d5f51;
+  --card: #ffffff;
+  --line: #c9d8cb;
+  --right: #1f7a2e;
+  --right-soft: #d8f0dc;
+  --wrong: #a3352b;
+  --wrong-soft: #f8e1de;
+  --focus: #ffcc33;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--green);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 22px;
+  line-height: 1.45;
+}
+
+.page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+  margin-bottom: 16px;
+}
+.topbar .brand { font-weight: 800; letter-spacing: 0.05em; }
+.topbar a, .link-button {
+  color: #fff;
+  font-size: 20px;
+  background: none;
+  border: none;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 8px 4px;
+  font-family: inherit;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 20px;
+  padding: 28px 24px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.center { text-align: center; }
+
+h1, h2 { margin: 0 0 12px; line-height: 1.2; text-wrap: balance; }
+h1 { font-size: 36px; }
+h2 { font-size: 30px; }
+.big { font-size: 26px; }
+.muted { color: var(--muted); }
+.small { font-size: 18px; }
+
+/* Buttons */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 64px;
+  padding: 12px 28px;
+  border-radius: 16px;
+  border: 3px solid var(--green);
+  background: #fff;
+  color: var(--green-dark);
+  font: 700 24px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+}
+.button.primary { background: var(--green); color: #fff; }
+.button.primary:hover { background: var(--green-dark); }
+.button:disabled { opacity: 0.55; cursor: default; }
+.button-row { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin-top: 24px; }
+
+button:focus-visible, a:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
+
+/* Question screen */
+.progress-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.progress { font-weight: 700; color: var(--muted); }
+.topic {
+  background: var(--green-soft);
+  color: var(--green-dark);
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-size: 18px;
+  font-weight: 700;
+}
+.question { font-size: 30px; font-weight: 700; margin: 8px 0 18px; }
+
+.choices { display: grid; gap: 14px; margin-top: 18px; }
+.choice {
+  width: 100%;
+  min-height: 72px;
+  text-align: left;
+  padding: 14px 20px;
+  border-radius: 16px;
+  border: 3px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font: 600 26px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+.choice:hover:not(:disabled) { border-color: var(--green); }
+.choice:disabled { cursor: default; }
+.choice.right { border-color: var(--right); background: var(--right-soft); }
+.choice.wrong { border-color: var(--wrong); background: var(--wrong-soft); }
+.choice .mark { font-weight: 800; margin-right: 10px; }
+
+.feedback { margin-top: 18px; font-size: 26px; font-weight: 700; min-height: 1.4em; }
+.feedback.right { color: var(--right); }
+.feedback.wrong { color: var(--wrong); }
+
+/* Survey */
+.chips { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 12px; }
+.chip {
+  min-height: 60px;
+  padding: 10px 22px;
+  border-radius: 999px;
+  border: 3px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font: 600 22px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+.chip[aria-pressed="true"] { border-color: var(--green); background: var(--green-soft); color: var(--green-dark); }
+
+.error-text { color: var(--wrong); font-weight: 700; }
+
+/* Games menu */
+.game-list { display: grid; gap: 16px; margin-top: 20px; }
+.game-link {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 96px;
+  padding: 18px 22px;
+  border-radius: 18px;
+  border: 3px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  text-decoration: none;
+}
+.game-link:hover { border-color: var(--green); }
+.game-link .icon { font-size: 44px; line-height: 1; }
+.game-link .name { font-size: 28px; font-weight: 800; display: block; }
+.game-link .about { font-size: 20px; color: var(--muted); display: block; }
+.game-link.soon { opacity: 0.6; pointer-events: none; }
+
+/* Sudoku */
+.sudoku {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  width: min(100%, 480px);
+  margin: 16px auto 0;
+  border: 4px solid var(--ink);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.cell {
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--green-dark);
+  font: 700 34px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+  cursor: pointer;
+  padding: 0;
+}
+.cell.given { color: var(--ink); background: #f1f4f1; cursor: default; }
+.cell.box-right { border-right: 4px solid var(--ink); }
+.cell.box-bottom { border-bottom: 4px solid var(--ink); }
+.cell.selected { background: #fff3c4; box-shadow: inset 0 0 0 4px var(--focus); }
+.cell.placed { color: var(--right); }
+.cell.flash { color: var(--wrong); background: var(--wrong-soft); }
+.number-pad {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  width: min(100%, 480px);
+  margin: 12px auto 0;
+}
+.number {
+  min-height: 68px;
+  border-radius: 14px;
+  border: 3px solid var(--green);
+  background: #fff;
+  color: var(--green-dark);
+  font: 800 30px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+.number:hover { background: var(--green-soft); }
+
+/* Solitaire */
+.solitaire { user-select: none; }
+.sol-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+.sol-row + .sol-row { margin-top: 18px; }
+.slot {
+  position: relative;
+  aspect-ratio: 5 / 7;
+  border-radius: 10px;
+  border: 2px dashed rgba(255, 255, 255, 0.55);
+  background: rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  color: rgba(255, 255, 255, 0.8);
+}
+.slot .hint { position: absolute; inset: 0; display: grid; place-items: center; font-size: 28px; }
+.pile { position: relative; cursor: pointer; }
+.card-face {
+  position: absolute;
+  left: 0;
+  right: 0;
+  aspect-ratio: 5 / 7;
+  border-radius: 10px;
+  background: #fff;
+  border: 2px solid #9aa89c;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+  padding: 4px 6px;
+  font: 800 clamp(16px, 2.6vw, 26px)/1.1 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #111;
+  text-align: left;
+  cursor: pointer;
+}
+.card-face.red { color: #c62828; }
+.card-face .corner { display: block; }
+.card-face .middle { position: absolute; inset: 0; display: grid; place-items: center; font-size: clamp(24px, 4.4vw, 44px); }
+.card-face.down {
+  background: repeating-linear-gradient(45deg, #1f5723 0 6px, #2e7d32 6px 12px);
+  border-color: #fff;
+}
+.card-face.selected { outline: 4px solid var(--focus); outline-offset: 0; z-index: 50; }
+.card-face.shake { animation: shake 0.35s; }
+@keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.sol-board { background: var(--green-dark); border-radius: 16px; padding: 14px; }
+.sol-help { color: var(--muted); text-align: center; margin: 0 0 12px; }
+
+@media (max-width: 520px) {
+  body { font-size: 20px; }
+  h1 { font-size: 30px; }
+  .question { font-size: 26px; }
+  .choice { font-size: 22px; }
+}
