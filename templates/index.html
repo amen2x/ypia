@@ -54,7 +54,11 @@
     <p>This will be broken into two sections: basic info about <span class="parent-name-echo">Susan</span> and her appointments.</p>
  
     <div class="update-section">
-      <h3 class="section-heading">📅 Upcoming Events</h3>
+      <div class="schedule-heading-row">
+        <h3 class="section-heading">📅 Upcoming Events</h3>
+        <button id="scoreCalendarBtn" class="schedule-score-btn" type="button">✨ Review points with Gemini</button>
+      </div>
+      <p id="schedulePointsStatus" class="schedule-points-status" hidden></p>
       <div class="appointment-list" id="upcomingEventsList">
         <p style="color: var(--ink-soft); font-size: 0.85rem;">Loading events...</p>
       </div>
@@ -290,6 +294,7 @@ const EVENT_ICONS = {
   Errands: "🛒",
   Community: "🌿"
 };
+let activeParentId = null;
 
 function formatEventDate(startTime, endTime) {
   const start = new Date(startTime);
@@ -312,7 +317,7 @@ function formatEventDate(startTime, endTime) {
   return `${date} · ${time}${endTimeLabel ? `–${endTimeLabel}` : ""}`;
 }
 
-function renderEvents(container, events, emptyMessage) {
+function renderEvents(container, events, emptyMessage, parentId = activeParentId) {
   if (!container) return;
   container.replaceChildren();
 
@@ -343,6 +348,20 @@ function renderEvents(container, events, emptyMessage) {
       text.append(location);
     }
 
+    const points = document.createElement("span");
+    points.className = "schedule-points";
+    if (event.point_value == null) {
+      points.textContent = "Points awaiting Gemini review";
+    } else if (event.attendance_status === "attended") {
+      points.textContent = `${event.points_earned ?? event.point_value} / ${event.point_value} points earned`;
+    } else if (event.attendance_status === "missed") {
+      points.textContent = `0 / ${event.point_value} points recorded`;
+    } else {
+      points.textContent = `${event.point_value} points available`;
+    }
+    if (event.points_review) points.title = event.points_review;
+    text.append(points);
+
     const icon = document.createElement("div");
     icon.className = "appointment-icon";
     icon.title = event.category || "Event";
@@ -355,6 +374,7 @@ function renderEvents(container, events, emptyMessage) {
 }
 
 async function loadSchedule(parentId) {
+  activeParentId = parentId;
   const upcoming = document.getElementById("upcomingEventsList");
   const past = document.getElementById("pastEventsList");
 
@@ -365,12 +385,45 @@ async function loadSchedule(parentId) {
     ]);
     if (!upcomingResponse.ok || !pastResponse.ok) throw new Error("Could not load events");
 
-    renderEvents(upcoming, await upcomingResponse.json(), "No upcoming events scheduled.");
-    renderEvents(past, await pastResponse.json(), "No past events yet.");
+    const upcomingEvents = await upcomingResponse.json();
+    const pastEvents = await pastResponse.json();
+
+    // Limit upcoming events to a maximum of 5
+    renderEvents(upcoming, upcomingEvents.slice(0, 5), "No upcoming events scheduled.", parentId);
+    renderEvents(past, pastEvents, "No past events yet.", parentId);
   } catch (error) {
     console.error("Failed to load parent schedule:", error);
     renderEvents(upcoming, [], "Unable to load upcoming events right now.");
     renderEvents(past, [], "Unable to load past events right now.");
+  }
+}
+
+async function reviewScheduleWithGemini() {
+  const statusMessage = document.getElementById("schedulePointsStatus");
+  const button = document.getElementById("scoreCalendarBtn");
+  if (!activeParentId) return;
+
+  if (button) button.disabled = true;
+  if (statusMessage) {
+    statusMessage.textContent = "Gemini is reviewing each day's events…";
+    statusMessage.className = "schedule-points-status";
+    statusMessage.hidden = false;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/api/parents/${encodeURIComponent(activeParentId)}/schedule/score`, { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Gemini could not review the calendar");
+    if (statusMessage) statusMessage.textContent = data.scoredEvents ? `Gemini reviewed ${data.scoredEvents} event${data.scoredEvents === 1 ? "" : "s"}. Each day totals 100 points.` : "All calendar events are already reviewed.";
+    await loadSchedule(activeParentId);
+  } catch (error) {
+    console.error("Failed to review calendar points:", error);
+    if (statusMessage) {
+      statusMessage.textContent = error.message || "Gemini could not review the calendar.";
+      statusMessage.className = "schedule-points-status is-error";
+    }
+  } finally {
+    if (button) button.disabled = false;
   }
 }
 
@@ -579,6 +632,7 @@ document.getElementById('backgroundFileInput')?.addEventListener('change', (e) =
 });
 
 loadParentData();
+document.getElementById("scoreCalendarBtn")?.addEventListener("click", reviewScheduleWithGemini);
 </script>
 
  <script>

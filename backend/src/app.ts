@@ -22,6 +22,7 @@ import {
 } from "./services/caregiverActions.js";
 import { registerVoiceConversation, syncVoiceConversation } from "./services/voiceConversations.js";
 import { DatabaseConfigurationError, getPool } from "./db.js";
+import { scoreUnreviewedSchedule } from "./services/schedulePoints.js";
 import { signupSchema, loginSchema, backgroundNotesSchema } from "./schemas.js";
 import { gameRoutes } from "./gameRoutes.js";
 
@@ -624,7 +625,7 @@ export function createApp() {
     try {
       const result = await getPool().query(
         `SELECT id, title, description, category, start_time, end_time,
-                location, address, with_whom, status
+                location, address, with_whom, status, attendance_status, point_value, points_earned, points_review
          FROM schedule
          WHERE parent_id = $1
            AND start_time >= NOW()
@@ -643,7 +644,7 @@ export function createApp() {
     try {
       const result = await getPool().query(
         `SELECT id, title, description, category, start_time, end_time,
-                location, address, with_whom, status
+                location, address, with_whom, status, attendance_status, point_value, points_earned, points_review
          FROM schedule
          WHERE parent_id = $1
            AND start_time < NOW()
@@ -657,7 +658,16 @@ export function createApp() {
     }
   });
 
-  app.use(gameRoutes);
+  // Ask Gemini to distribute each day's 100 engagement points over its unreviewed events.
+  app.post("/api/parents/:id/schedule/score", async (request, response, next) => {
+    try {
+      const scoredEvents = await scoreUnreviewedSchedule(request.params.id);
+      response.json({ scoredEvents });
+    } catch (error: unknown) {
+      next(error);
+    }
+  });
+
   app.use(errorHandler);
   return app;
 }

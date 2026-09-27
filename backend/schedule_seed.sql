@@ -32,6 +32,14 @@ CREATE TABLE schedule (
     address VARCHAR(255) NOT NULL,
     with_whom VARCHAR(150) NOT NULL,
     status VARCHAR(50) DEFAULT 'scheduled',
+    attendance_status VARCHAR(20) NOT NULL DEFAULT 'not_recorded',
+    point_value INTEGER,
+    points_earned INTEGER,
+    points_review TEXT,
+    CONSTRAINT schedule_point_value_range CHECK (point_value IS NULL OR point_value BETWEEN 0 AND 100),
+    CONSTRAINT schedule_points_earned_range CHECK (points_earned IS NULL OR (points_earned >= 0 AND points_earned <= point_value)),
+    CONSTRAINT schedule_attendance_status CHECK (status IN ('scheduled', 'attended', 'missed')),
+    CONSTRAINT schedule_attendance_value CHECK (attendance_status IN ('not_recorded', 'attended', 'missed')),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -337,4 +345,64 @@ INSERT INTO schedule (
     'Home - Front Porch',
     '1428 Maple Ridge Ln, Springfield, IL 62704',
     'Mike Carter, Emma, Lucas'
+),
+(
+    'Lunch at Maple Street Café with Mike',
+    'A relaxed lunch after Susan''s clinic visit to talk through the rest of the week.',
+    'Family',
+    '2026-10-02 12:00:00-05',
+    '2026-10-02 13:00:00-05',
+    'Maple Street Café',
+    '1200 S 5th St, Springfield, IL 62703',
+    'Mike Carter (Son)'
+),
+(
+    'Church Choir Practice',
+    'An afternoon rehearsal for Sunday''s choir service.',
+    'Church',
+    '2026-10-07 13:00:00-05',
+    '2026-10-07 14:15:00-05',
+    'First Community Church - Choir Room',
+    '600 S 5th St, Springfield, IL 62701',
+    'Church Choir'
+),
+(
+    'Mystery Book Club Discussion',
+    'Small library book-club discussion of the month''s mystery novel.',
+    'Social',
+    '2026-10-14 10:30:00-05',
+    '2026-10-14 11:30:00-05',
+    'Lincoln Library - Community Room',
+    '326 S 7th St, Springfield, IL 62701',
+    'Library Book Club'
+),
+(
+    'Sunday Family Brunch',
+    'Brunch with Mike and the grandchildren before the afternoon at home.',
+    'Family',
+    '2026-10-18 12:00:00-05',
+    '2026-10-18 13:15:00-05',
+    'Maple Street Café',
+    '1200 S 5th St, Springfield, IL 62703',
+    'Mike, Emma, and Lucas'
+),
+(
+    'Evening Card Game with Neighbor Jim',
+    'A casual card-game visit after the garden work.',
+    'Social',
+    '2026-10-21 18:30:00-05',
+    '2026-10-21 19:30:00-05',
+    'Home - Living Room',
+    '1428 Maple Ridge Ln, Springfield, IL 62704',
+    'Jim Miller (Neighbor)'
+),
+(
+    'Pumpkin Patch Visit with Grandchildren',
+    'A short afternoon outing to choose pumpkins and take family photos.',
+    'Family',
+    '2026-10-25 13:00:00-05',
+    '2026-10-25 14:30:00-05',
+    'Willow Creek Pumpkin Patch',
+    '2800 W Jefferson St, Springfield, IL 62702',
+    'Mike, Emma, and Lucas'
 );
