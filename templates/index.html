@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
-    <link rel="stylesheet" href="../static/style.css">
+    <link rel="stylesheet" href="/static/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -26,8 +26,8 @@
     <a href="#" class="brand">Y.P.I.A</a>
  
     <div class="navbar-profile">
-        <img src="static/images/man.jpeg" alt="Profile Picture" class="profile-image">
-        <span class="welcome-text">Welcome back, <span id="logged-in-user">Mike</span></span>
+        <img src="/static/images/man.jpeg" alt="Profile Picture" class="profile-image">
+        <span class="welcome-text">Welcome back, <span id="logged-in-user">User</span></span>
     </div>
  
     <button class="upload-btn" id="openUploadModal">Upload Documents</button>
@@ -47,61 +47,23 @@
         <h2 class="tag">General/update</h2>
  
     <div class="profile-header">
-    <img src="static/images/elderwoman.jpg" alt="Profile Picture" class="circular-image">
+    <img src="/static/images/elderwoman.jpg" alt="Profile Picture" class="circular-image">
     <h1><span id="parent-name">Susan</span>'s updates</h1>
   </div>
  
     <p>This will be broken into two sections: basic info about <span class="parent-name-echo">Susan</span> and her appointments.</p>
  
     <div class="update-section">
-      <h3 class="section-heading">🛒 Groceries</h3>
-      <div class="appointment-list">
-        <div class="appointment-item">
-          <div class="appointment-text">
-            <strong>Weekly grocery run</strong>
-            <span>Milk, bread, coffee, blood pressure–friendly snacks</span>
-          </div>
-          <div class="appointment-icon" title="Groceries">🛒</div>
-        </div>
+      <h3 class="section-heading">📅 Upcoming Events</h3>
+      <div class="appointment-list" id="upcomingEventsList">
+        <p style="color: var(--ink-soft); font-size: 0.85rem;">Loading events...</p>
       </div>
     </div>
  
     <div class="update-section">
-      <h3 class="section-heading">📅 Scheduled Appointments</h3>
-      <div class="appointment-list">
-        <div class="appointment-item">
-          <div class="appointment-text">
-            <strong>Dentist Appointment</strong>
-            <span>Friday, October 31 · 12:00 PM</span>
-          </div>
-          <div class="appointment-icon" title="Dentist appointment"></div>
-        </div>
-      </div>
-    </div>
- 
-    <div class="update-section">
-      <h3 class="section-heading">Unscheduled Appointments</h3>
-      <div class="appointment-list">
-        <div class="appointment-item">
-          <div class="appointment-text">
-            <strong>Physical Therapy</strong>
-            <span>Still needs to be booked — see checklist</span>
-          </div>
-          <div class="appointment-icon" title="Needs to be scheduled">🩺</div>
-        </div>
-      </div>
-    </div>
- 
-    <div class="update-section">
-      <h3 class="section-heading">Past Appointments</h3>
-      <div class="appointment-list">
-        <div class="appointment-item">
-          <div class="appointment-text">
-            <strong>Prescription Refill</strong>
-            <span>August 15 — picked up at last check-up</span>
-          </div>
-          <div class="appointment-icon" title="Prescription refill">💊</div>
-        </div>
+      <h3 class="section-heading">📋 Past Events</h3>
+      <div class="appointment-list" id="pastEventsList">
+        <p style="color: var(--ink-soft); font-size: 0.85rem;">Loading events...</p>
       </div>
     </div>
   </div>
@@ -159,10 +121,32 @@
     <span class="status-indicator" data-status="good"></span>
   </div>
  
-  <div class="box w-4 h-2">
-    <h2 class="tag" > Susan's sumary</h2>
-    <p>helpfull data for a doctor's appointment or something</p>
+<div class="box w-4 h-2" id="parentSummaryBox">
+  <div style="display: flex; justify-content: space-between; align-items: baseline; width: 100%;">
+    <h2 class="tag"><span class="parent-name-echo">Susan</span>'s summary & preferences</h2>
   </div>
+  <p style="font-size: 0.8rem; color: var(--ink-soft); margin: 0;">What <span class="parent-name-echo">Susan</span> enjoys, daily routines, hobbies, and background notes.</p>
+
+  <div id="backgroundNotesContainer" style="display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.25rem;">
+    <p id="backgroundNotesDisplay" style="white-space: pre-wrap; font-size: 0.88rem; line-height: 1.5; color: var(--ink); background: rgba(0,0,0,0.03); padding: 0.6rem 0.75rem; border-radius: 8px; border: 1px solid var(--line); min-height: 48px; max-height: 140px; overflow-y: auto;">Loading details...</p>
+  </div>
+
+  <div id="notesEditSection" style="display: none; flex-direction: column; gap: 0.5rem; margin-top: 0.25rem;">
+    <textarea id="backgroundNotesTextarea" rows="4" placeholder="Enter what your parent enjoys, hobbies, food preferences, daily routine, or background notes..." style="width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.75rem; font-family: inherit; font-size: 0.88rem; line-height: 1.45; resize: vertical; min-height: 80px;"></textarea>
+    <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+      <button id="cancelNotesBtn" type="button" style="padding: 0.35rem 0.75rem; font-size: 0.82rem; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--ink); cursor: pointer;">Cancel</button>
+      <button id="saveNotesBtn" type="button" style="padding: 0.35rem 0.85rem; font-size: 0.82rem; font-weight: 600; border: none; border-radius: 6px; background: var(--accent); color: #fff; cursor: pointer;">Save</button>
+    </div>
+  </div>
+
+  <div id="notesActionButtons" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: auto; padding-top: 0.35rem;">
+    <button id="editBackgroundBtn" type="button" style="padding: 0.4rem 0.8rem; font-size: 0.82rem; font-weight: 600; border: 1px solid var(--accent); border-radius: 6px; background: var(--accent-soft); color: var(--accent); cursor: pointer;">✏️ Edit Notes</button>
+    <button id="uploadBackgroundBtn" type="button" style="padding: 0.4rem 0.8rem; font-size: 0.82rem; font-weight: 600; border: 1px solid var(--accent); border-radius: 6px; background: var(--accent); color: #fff; cursor: pointer;">📁 Upload File</button>
+    <input type="file" id="backgroundFileInput" accept=".txt,.json,.md,.csv,text/plain,application/json,text/markdown" hidden>
+  </div>
+
+  <p id="backgroundSaveStatus" class="save-status" style="margin: 0.2rem 0 0; font-size: 0.8rem; font-weight: 500;" hidden></p>
+</div>
  
   <div class="box w-8 h-2">
     <h2 class="tag">fact check that boomer message</h2>
@@ -227,7 +211,358 @@
  
  </div>
  
- <script> //mood board java
+<script>
+const API_BASE = window.location.port === "3000" ? "" : "http://localhost:3000";
+
+async function getOrFetchParentId(user) {
+  // Always refresh the link for the signed-in account. A cached parentId can
+  // belong to a previous test login and make the child see the wrong calendar.
+  if (user && user.id) {
+    try {
+      const res = await fetch(`${API_BASE}/api/users/${user.id}/parent`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.parentId) {
+          user.parentId = data.parentId;
+          localStorage.setItem("ypia_user", JSON.stringify(user));
+          return data.parentId;
+        }
+      }
+    } catch (err) {
+      console.warn("Could not fetch linked parent from backend:", err);
+    }
+  }
+
+  // Use the cached value only when the backend cannot be reached.
+  if (user && user.parentId) return user.parentId;
+
+  // Fallback: check if we can query parents list
+  try {
+    const res = await fetch(`${API_BASE}/api/parents`);
+    if (res.ok) {
+      const parents = await res.json();
+      if (Array.isArray(parents) && parents.length > 0) {
+        user.parentId = parents[0].id;
+        localStorage.setItem("ypia_user", JSON.stringify(user));
+        return user.parentId;
+      }
+    }
+  } catch (err) {
+    console.warn("Could not fetch parents list:", err);
+  }
+
+  return null;
+}
+
+function updateParentNameDisplay(name) {
+  if (!name) return;
+  const parentNameEl = document.getElementById('parent-name');
+  if (parentNameEl) parentNameEl.textContent = name;
+  document.querySelectorAll('.parent-name-echo').forEach(el => {
+    el.textContent = name;
+  });
+}
+
+const EVENT_ICONS = {
+  Medical: "🩺",
+  Church: "⛪",
+  Social: "☕",
+  Family: "👪",
+  Errands: "🛒",
+  Community: "🌿"
+};
+
+function formatEventDate(startTime, endTime) {
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+  if (Number.isNaN(start.getTime())) return "Date and time unavailable";
+
+  const date = new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric"
+  }).format(start);
+  const time = new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(start);
+  const endTimeLabel = !Number.isNaN(end.getTime())
+    ? new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(end)
+    : null;
+
+  return `${date} · ${time}${endTimeLabel ? `–${endTimeLabel}` : ""}`;
+}
+
+function renderEvents(container, events, emptyMessage) {
+  if (!container) return;
+  container.replaceChildren();
+
+  if (!Array.isArray(events) || events.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "schedule-empty";
+    empty.textContent = emptyMessage;
+    container.append(empty);
+    return;
+  }
+
+  events.forEach((event) => {
+    const item = document.createElement("article");
+    item.className = "appointment-item schedule-event";
+
+    const text = document.createElement("div");
+    text.className = "appointment-text";
+    const title = document.createElement("strong");
+    title.textContent = event.title;
+    const when = document.createElement("span");
+    when.textContent = formatEventDate(event.start_time, event.end_time);
+    text.append(title, when);
+
+    if (event.location) {
+      const location = document.createElement("span");
+      location.className = "schedule-location";
+      location.textContent = event.location;
+      text.append(location);
+    }
+
+    const icon = document.createElement("div");
+    icon.className = "appointment-icon";
+    icon.title = event.category || "Event";
+    icon.setAttribute("aria-label", event.category || "Event");
+    icon.textContent = EVENT_ICONS[event.category] || "📅";
+
+    item.append(text, icon);
+    container.append(item);
+  });
+}
+
+async function loadSchedule(parentId) {
+  const upcoming = document.getElementById("upcomingEventsList");
+  const past = document.getElementById("pastEventsList");
+
+  try {
+    const [upcomingResponse, pastResponse] = await Promise.all([
+      fetch(`${API_BASE}/api/parents/${encodeURIComponent(parentId)}/schedule`),
+      fetch(`${API_BASE}/api/parents/${encodeURIComponent(parentId)}/schedule/past`)
+    ]);
+    if (!upcomingResponse.ok || !pastResponse.ok) throw new Error("Could not load events");
+
+    renderEvents(upcoming, await upcomingResponse.json(), "No upcoming events scheduled.");
+    renderEvents(past, await pastResponse.json(), "No past events yet.");
+  } catch (error) {
+    console.error("Failed to load parent schedule:", error);
+    renderEvents(upcoming, [], "Unable to load upcoming events right now.");
+    renderEvents(past, [], "Unable to load past events right now.");
+  }
+}
+
+function toggleEditNotes(showEdit) {
+  const editSection = document.getElementById('notesEditSection');
+  const notesContainer = document.getElementById('backgroundNotesContainer');
+  const notesActions = document.getElementById('notesActionButtons');
+  const textarea = document.getElementById('backgroundNotesTextarea');
+  const display = document.getElementById('backgroundNotesDisplay');
+
+  if (showEdit) {
+    if (textarea && display) {
+      const current = display.textContent.trim();
+      const isPlaceholder = current.startsWith("No background info yet") || current === "Loading details...";
+      textarea.value = isPlaceholder ? "" : current;
+    }
+    if (editSection) editSection.style.display = "flex";
+    if (notesContainer) notesContainer.style.display = "none";
+    if (notesActions) notesActions.style.display = "none";
+    if (textarea) textarea.focus();
+  } else {
+    if (editSection) editSection.style.display = "none";
+    if (notesContainer) notesContainer.style.display = "flex";
+    if (notesActions) notesActions.style.display = "flex";
+  }
+}
+
+async function loadParentData() {
+  const user = JSON.parse(localStorage.getItem("ypia_user") || "{}");
+
+  if (user.fullName) {
+    const userEl = document.getElementById('logged-in-user');
+    if (userEl) userEl.textContent = user.fullName;
+  }
+
+  if (user.role === "parent") {
+    window.location.href = "/parent";
+    return;
+  }
+
+  const display = document.getElementById('backgroundNotesDisplay');
+  const textarea = document.getElementById('backgroundNotesTextarea');
+
+  const parentId = await getOrFetchParentId(user);
+  if (!parentId) {
+    if (display) display.textContent = "No parent profile linked yet. Sign up or log in with your parent's email to link accounts.";
+    renderEvents(document.getElementById("upcomingEventsList"), [], "Link a parent profile to see upcoming events.");
+    renderEvents(document.getElementById("pastEventsList"), [], "Link a parent profile to see past events.");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/parents/${parentId}`);
+    if (!res.ok) throw new Error(`Failed to load parent (${res.status})`);
+    const parent = await res.json();
+
+    updateParentNameDisplay(parent.name);
+
+    const notes = parent.background_notes || "No background info yet. Click 'Edit Notes' or 'Upload File' to add what they enjoy, hobbies, or preferences.";
+    if (display) display.textContent = notes;
+    if (textarea) textarea.value = parent.background_notes || "";
+    await loadSchedule(parentId);
+  } catch (err) {
+    console.error("Failed to load parent data:", err);
+    if (display) display.textContent = "No background info yet. Click 'Edit Notes' or 'Upload File' to add what they enjoy, hobbies, or preferences.";
+  }
+}
+
+async function uploadBackgroundFile(file) {
+  const user = JSON.parse(localStorage.getItem("ypia_user") || "{}");
+  const display = document.getElementById('backgroundNotesDisplay');
+  const textarea = document.getElementById('backgroundNotesTextarea');
+  const status = document.getElementById('backgroundSaveStatus');
+  const uploadBtn = document.getElementById('uploadBackgroundBtn');
+
+  const parentId = await getOrFetchParentId(user);
+  if (!parentId) {
+    if (status) {
+      status.style.color = "#c0392b";
+      status.textContent = "Cannot upload: No parent account is linked to your profile.";
+      status.hidden = false;
+    }
+    return;
+  }
+
+  if (status) {
+    status.style.color = "var(--ink-soft)";
+    status.textContent = "Uploading and saving...";
+    status.hidden = false;
+  }
+  if (uploadBtn) uploadBtn.disabled = true;
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/parents/${parentId}/background/upload`, {
+      method: "PUT",
+      body: formData
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `Upload failed (${res.status})`);
+    }
+    const data = await res.json();
+    const notes = data.backgroundNotes || "No background info yet.";
+    if (display) display.textContent = notes;
+    if (textarea) textarea.value = data.backgroundNotes || "";
+    if (status) {
+      status.style.color = "#27ae60";
+      status.textContent = "✓ Uploaded and saved for your parent.";
+      status.hidden = false;
+      setTimeout(() => { if (status.textContent.includes("✓")) status.hidden = true; }, 3500);
+    }
+  } catch (err) {
+    console.error("Failed to upload background file:", err);
+    if (status) {
+      status.style.color = "#c0392b";
+      status.textContent = err.message || "Upload failed — try a .txt, .json, or .md file.";
+      status.hidden = false;
+    }
+  } finally {
+    if (uploadBtn) uploadBtn.disabled = false;
+    const fileInput = document.getElementById('backgroundFileInput');
+    if (fileInput) fileInput.value = "";
+  }
+}
+
+async function saveBackgroundNotes(notesText) {
+  const user = JSON.parse(localStorage.getItem("ypia_user") || "{}");
+  const display = document.getElementById('backgroundNotesDisplay');
+  const textarea = document.getElementById('backgroundNotesTextarea');
+  const status = document.getElementById('backgroundSaveStatus');
+  const saveBtn = document.getElementById('saveNotesBtn');
+
+  const parentId = await getOrFetchParentId(user);
+  if (!parentId) {
+    if (status) {
+      status.style.color = "#c0392b";
+      status.textContent = "Cannot save: No parent account is linked to your profile.";
+      status.hidden = false;
+    }
+    return;
+  }
+
+  if (saveBtn) saveBtn.disabled = true;
+  if (status) {
+    status.style.color = "var(--ink-soft)";
+    status.textContent = "Saving notes...";
+    status.hidden = false;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/parents/${parentId}/background`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ backgroundNotes: notesText })
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `Save failed (${res.status})`);
+    }
+
+    const savedText = notesText.trim() || "No background info yet. Click 'Edit Notes' or 'Upload File' to add what they enjoy, hobbies, or preferences.";
+    if (display) display.textContent = savedText;
+    if (textarea) textarea.value = notesText;
+    toggleEditNotes(false);
+
+    if (status) {
+      status.style.color = "#27ae60";
+      status.textContent = "✓ Notes saved successfully.";
+      status.hidden = false;
+      setTimeout(() => { if (status.textContent.includes("✓")) status.hidden = true; }, 3500);
+    }
+  } catch (err) {
+    console.error("Failed to save background notes:", err);
+    if (status) {
+      status.style.color = "#c0392b";
+      status.textContent = err.message || "Failed to save notes. Please try again.";
+      status.hidden = false;
+    }
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
+  }
+}
+
+document.getElementById('editBackgroundBtn')?.addEventListener('click', () => {
+  toggleEditNotes(true);
+});
+
+document.getElementById('cancelNotesBtn')?.addEventListener('click', () => {
+  toggleEditNotes(false);
+});
+
+document.getElementById('saveNotesBtn')?.addEventListener('click', () => {
+  const textarea = document.getElementById('backgroundNotesTextarea');
+  saveBackgroundNotes(textarea ? textarea.value : "");
+});
+
+document.getElementById('uploadBackgroundBtn')?.addEventListener('click', () => {
+  document.getElementById('backgroundFileInput')?.click();
+});
+
+document.getElementById('backgroundFileInput')?.addEventListener('change', (e) => {
+  if (e.target.files && e.target.files[0]) uploadBackgroundFile(e.target.files[0]);
+});
+
+loadParentData();
+</script>
+
+ <script>
   // Keep every "echo" of the parent's name in sync with the single source of truth (#parent-name)
   (function syncParentName() {
     const source = document.getElementById('parent-name');
@@ -730,7 +1065,7 @@ function addNewItem() {
 }
 </script>
  
-<script src="../static/document-upload.js" defer></script>
+<script src="/static/document-upload.js" defer></script>
  
  
   
