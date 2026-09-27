@@ -9,7 +9,7 @@ import type {
   ReconciliationResult,
 } from "../types.js";
 
-const actionableMedicationChangeTypes = new Set<MedicationChangeType>([
+export const actionableMedicationChangeTypes = new Set<MedicationChangeType>([
   "ADDED",
   "DOSE_CHANGED",
   "FREQUENCY_CHANGED",
