@@ -197,7 +197,7 @@
         const mistakes = tracker.moves.filter((move) => !move.ok).length;
         app.replaceChildren(el("div", { class: "center" }, [
           el("h1", { text: completed ? doneTitle : "Thanks for playing!" }),
-          el("p", { class: "big", text: completed ? "Your garden grew! 🌱" : "Your moves were saved. 🌱" }),
+          el("p", { class: "big", text: completed ? "Your garden grew!" : "Your moves were saved." }),
           el("p", { class: "muted", text: `Time: ${formatDuration(seconds)} · Moves: ${tracker.moves.length} · Mistakes: ${mistakes}` }),
           el("div", { class: "button-row" }, [
             el("button", { type: "button", class: "button primary", text: "New game", onclick: onRestart }),

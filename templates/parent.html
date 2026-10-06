@@ -3,861 +3,264 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Parent Home | Y.P.I.A</title>
+<meta name="theme-color" content="#f7f3e8">
+<title>Home | Y.P.I.A</title>
+<link rel="preload" href="/static/fonts/atkinson-hyperlegible-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/parent.css">
+<link rel="stylesheet" href="/static/ypia-orb.css">
+<script>
+  // Redirect before anything paints if nobody (or the wrong kind of account) is logged in.
+  (function () {
+    var user = null;
+    try { user = JSON.parse(localStorage.getItem("ypia_user") || "null"); } catch (e) {}
+    if (!user) window.location.replace("/login");
+    else if (user.role !== "parent") window.location.replace("/");
+  })();
+</script>
 </head>
 <body>
-  <header class="app-header">
-    <span class="brand">Y.P.I.A</span>
-    <button id="avatarButton" class="avatar-button" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Open profile menu">
-      <img id="avatarImage" class="avatar-image" src="/static/images/elderwoman.jpg" alt="">
-      <span id="avatarInitials" class="avatar-initials" hidden></span>
-    </button>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#home" aria-label="Y.P.I.A home">
+        <span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="/static/icons/sprite.svg#i-heart-pulse"/></svg></span>
+        Y.P.I.A
+      </a>
+
+      <nav class="main-nav" aria-label="Main">
+        <ul>
+          <li><a class="nav-link" href="#home" data-route="home"><svg class="icon" aria-hidden="true"><use href="/static/icons/sprite.svg#i-house"/></svg>Home</a></li>
+          <li><a class="nav-link" href="#medications" data-route="medications"><svg class="icon" aria-hidden="true"><use href="/static/icons/sprite.svg#i-pill"/></svg>Medications</a></li>
+          <li><a class="nav-link" href="#schedule" data-route="schedule"><svg class="icon" aria-hidden="true"><use href="/static/icons/sprite.svg#i-calendar-days"/></svg>Schedule</a></li>
+          <li><a class="nav-link" href="#documents" data-route="documents"><svg class="icon" aria-hidden="true"><use href="/static/icons/sprite.svg#i-file-text"/></svg>Documents</a></li>
+          <li><a class="nav-link" href="#games" data-route="games"><svg class="icon" aria-hidden="true"><use href="/static/icons/sprite.svg#i-gamepad-2"/></svg>Games</a></li>
+        </ul>
+      </nav>
+
+      <button id="avatarButton" class="avatar-button" type="button" aria-haspopup="dialog" aria-label="Open my profile">
+        <span class="avatar" data-avatar></span>
+        <span class="avatar-button-name" id="avatarName">Profile</span>
+        <svg class="icon avatar-chevron" aria-hidden="true"><use href="/static/icons/sprite.svg#i-chevron-down"/></svg>
+      </button>
+    </div>
   </header>
 
-  <div id="profileOverlay" class="profile-overlay" hidden></div>
-  <div id="profilePanel" class="profile-panel" hidden role="dialog" aria-modal="true" aria-label="Profile">
-    <div class="profile-panel-header">
-      <img id="profileAvatarImage" class="profile-avatar-image" src="/static/images/elderwoman.jpg" alt="">
-      <span id="profileAvatarInitials" class="avatar-initials" hidden></span>
-      <div>
-        <p class="profile-name" id="profileName">Parent</p>
-        <p class="profile-email" id="profileEmail" hidden></p>
-        <p class="profile-role">Parent account</p>
+  <main id="main" class="page">
+
+    <!-- Home -->
+    <section id="view-home" class="view" aria-labelledby="greeting">
+      <div class="home">
+        <div class="stage">
+          <div class="stage-top">
+            <h1 class="greeting" id="greeting" tabindex="-1">Hello</h1>
+            <p class="today-line" id="todayLine"></p>
+          </div>
+
+          <div id="companionHome" class="companion-home">
+            <div id="companion" class="companion" role="group" aria-labelledby="voiceTitle">
+              <div id="orbSlot"></div>
+              <div class="companion-text">
+                <h2 class="companion-name" id="voiceTitle">Talk to Y.P.I.A.</h2>
+                <button type="button" class="voice-pill" id="voicePill">
+                  <span id="voiceStatus" class="voice-status">Tap to start talking</span>
+                  <svg class="icon voice-pill-icon" aria-hidden="true"><use href="/static/icons/sprite.svg#i-audio-lines"/></svg>
+                </button>
+                <p id="voiceLive" class="sr-only" role="status" aria-live="polite"></p>
+                <p id="voiceHint" class="voice-hint"></p>
+              </div>
+            </div>
+          </div>
+
+          <div id="streakDisplay" class="streak" hidden>
+            <span class="streak-badge"><svg class="icon " aria-hidden="true"><use href="/static/icons/sprite.svg#i-leaf"/></svg></span>
+            <p><strong><span id="streakCount">0</span> week streak</strong><span>You&rsquo;re doing great!</span></p>
+          </div>
+        </div>
+
+        <div class="today">
+          <section class="care" aria-labelledby="nextTitle">
+            <div class="care-head">
+              <div><p class="kicker">Your day</p><h2 class="care-title" id="nextTitle">Coming up</h2></div>
+              <a class="pill-link" href="#schedule">Full schedule <svg class="icon " aria-hidden="true"><use href="/static/icons/sprite.svg#i-arrow-right"/></svg></a>
+            </div>
+            <div class="panel panel--timeline"><div id="nextUp" aria-live="polite"></div></div>
+          </section>
+
+          <section class="care care--region" aria-labelledby="homeMedTitle">
+            <div class="care-head">
+              <div><p class="kicker">Your care</p><h2 class="care-title" id="homeMedTitle">Your medicines</h2></div>
+              <a class="pill-link" href="#medications">See all <svg class="icon " aria-hidden="true"><use href="/static/icons/sprite.svg#i-arrow-right"/></svg></a>
+            </div>
+            <div class="panel"><div id="homeMeds" aria-live="polite"></div></div>
+          </section>
+
+          <section class="care" aria-labelledby="quickTitle">
+            <p class="kicker" id="quickTitle">Quick actions</p>
+            <div class="quick-row">
+              <button class="quick-tile quick-tile--sage" type="button" data-action="upload">
+                <span class="tile-icon"><svg class="icon " aria-hidden="true"><use href="/static/icons/sprite.svg#i-file-text"/></svg></span>
+                <span class="tile-text"><strong>Add a document</strong><span>Upload test results, notes, or more</span></span>
+                <svg class="icon tile-chevron" aria-hidden="true"><use href="/static/icons/sprite.svg#i-chevron-right"/></svg>
+              </button>
+              <a class="quick-tile quick-tile--clay" href="#games">
+                <span class="tile-icon"><svg class="icon " aria-hidden="true"><use href="/static/icons/sprite.svg#i-gamepad-2"/></svg></span>
+                <span class="tile-text"><strong>Play a game</strong><span>Keep your mind active</span></span>
+                <svg class="icon tile-chevron" aria-hidden="true"><use href="/static/icons/sprite.svg#i-chevron-right"/></svg>
+              </a>
+            </div>
+          </section>
+        </div>
       </div>
-    </div>
-    <button id="logoutButton" class="profile-logout" type="button">Log out</button>
-  </div>
-
-  <main class="parent-main">
-    <div class="greeting-block">
-      <h1 class="greeting" id="greeting">Hi</h1>
-      <p class="prompt">What can I help you with today?</p>
-      <p id="streakDisplay" class="streak-badge" hidden>🔥 <span id="streakCount">0</span> week streak</p>
-    </div>
-
-    <div class="voice-hero">
-      <button id="voiceButton" class="voice-orb" type="button" aria-label="Start voice conversation">
-        <span class="orb-ring" aria-hidden="true"></span>
-        <span class="orb-core" aria-hidden="true">🎤</span>
-      </button>
-      <p id="voiceStatus" class="voice-status" role="status" aria-live="polite">Tap to talk</p>
-    </div>
-
-    <section class="upload-card">
-      <button id="uploadButton" class="upload-button" type="button" aria-label="Add a medical document">＋ Add medical document</button>
-      <p class="upload-hint">Prescription, visit summary, appointment sheet, or other healthcare document</p>
-      <div id="uploadToast" class="toast" role="status" aria-live="polite" hidden></div>
     </section>
 
-    <a href="/static/games/index.html" class="games-link">🎲 Play games</a>
+    <!-- Medications -->
+    <section id="view-medications" class="view" aria-labelledby="medTitle" hidden>
+      <header class="page-head">
+        <h1 class="page-title" id="medTitle" tabindex="-1">My medications</h1>
+        <p class="page-sub">What you're currently taking. Ask your caregiver or doctor before changing anything.</p>
+      </header>
+      <div id="medList" aria-live="polite"></div>
+    </section>
+
+    <!-- Schedule -->
+    <section id="view-schedule" class="view" aria-labelledby="schedTitle" hidden>
+      <header class="page-head">
+        <h1 class="page-title" id="schedTitle" tabindex="-1">My schedule</h1>
+        <p class="page-sub">Appointments and plans, all in one place.</p>
+      </header>
+      <div id="scheduleTabs" class="tabs" role="tablist" aria-label="Choose a time range">
+        <button class="tab" role="tab" type="button" data-range="today" aria-selected="true">Today</button>
+        <button class="tab" role="tab" type="button" data-range="tomorrow" aria-selected="false" tabindex="-1">Tomorrow</button>
+        <button class="tab" role="tab" type="button" data-range="week" aria-selected="false" tabindex="-1">This week</button>
+        <button class="tab" role="tab" type="button" data-range="upcoming" aria-selected="false" tabindex="-1">Coming up</button>
+      </div>
+      <div id="scheduleList" role="tabpanel" aria-live="polite"></div>
+    </section>
+
+    <!-- Documents -->
+    <section id="view-documents" class="view" aria-labelledby="docTitle" hidden>
+      <header class="page-head">
+        <h1 class="page-title" id="docTitle" tabindex="-1">My documents</h1>
+        <p class="page-sub">Add a prescription or visit summary. Y.P.I.A reads it, and you check it before anything is saved.</p>
+      </header>
+      <div class="doc-grid">
+        <section class="card upload-card" aria-labelledby="uploadTitle">
+          <h2 class="card-title" id="uploadTitle">Add a document</h2>
+          <p>Take a clear photo or choose a file from this device.</p>
+          <div class="doc-types" aria-label="Accepted files">
+            <span class="chip">Photo (JPG, PNG)</span><span class="chip">PDF</span>
+          </div>
+          <button class="btn btn-primary" type="button" data-action="upload">
+            <svg class="icon" aria-hidden="true"><use href="/static/icons/sprite.svg#i-upload"/></svg>Choose a document
+          </button>
+          <div id="uploadToast" class="toast" role="status" aria-live="polite" hidden></div>
+        </section>
+        <section class="card" aria-labelledby="historyTitle">
+          <h2 class="card-title" id="historyTitle">Added on this device</h2>
+          <div id="docHistory"></div>
+        </section>
+      </div>
+    </section>
+
+    <!-- Games -->
+    <section id="view-games" class="view" aria-labelledby="gameTitle" hidden>
+      <header class="page-head">
+        <h1 class="page-title" id="gameTitle" tabindex="-1">Games</h1>
+        <p class="page-sub">Play one a day to keep your mind sharp.</p>
+      </header>
+      <div class="game-grid">
+        <a class="quick-card game-card" href="/static/games/trivia.html">
+          <span class="quick-icon"><svg class="icon" aria-hidden="true"><use href="/static/icons/sprite.svg#i-brain"/></svg></span>
+          <span>Trivia<p>10 questions about things you love</p></span>
+          <svg class="icon quick-arrow" aria-hidden="true"><use href="/static/icons/sprite.svg#i-arrow-right"/></svg>
+        </a>
+        <a class="quick-card game-card" href="/static/games/sudoku.html">
+          <span class="quick-icon"><svg class="icon" aria-hidden="true"><use href="/static/icons/sprite.svg#i-grid-3x3"/></svg></span>
+          <span>Sudoku<p>An easy number puzzle</p></span>
+          <svg class="icon quick-arrow" aria-hidden="true"><use href="/static/icons/sprite.svg#i-arrow-right"/></svg>
+        </a>
+        <a class="quick-card game-card" href="/static/games/solitaire.html">
+          <span class="quick-icon"><svg class="icon" aria-hidden="true"><use href="/static/icons/sprite.svg#i-spade"/></svg></span>
+          <span>Solitaire<p>The classic card game</p></span>
+          <svg class="icon quick-arrow" aria-hidden="true"><use href="/static/icons/sprite.svg#i-arrow-right"/></svg>
+        </a>
+      </div>
+    </section>
   </main>
 
-  <div id="reviewOverlay" class="review-overlay" hidden></div>
-  <section id="reviewPanel" class="review-panel" hidden role="dialog" aria-modal="true" aria-label="Review document information">
-    <h2 class="review-title">Does this look correct?</h2>
-    <p id="reviewSubtitle" class="review-subtitle"></p>
-    <p id="reviewEmptyNote" class="review-empty-note" hidden>We couldn't confidently identify any care information in this document.</p>
-    <div id="reviewSections" class="review-sections"></div>
-    <p id="reviewError" class="review-error" hidden></p>
-    <div class="review-actions">
-      <button id="reviewCancelButton" type="button" class="review-button review-button-secondary">Cancel</button>
-      <button id="reviewConfirmButton" type="button" class="review-button review-button-primary">Confirm &amp; Add to Y.P.I.A</button>
+  <!-- The companion moves here (small) on every page except Home. -->
+  <div id="companionDock" class="companion-dock" hidden></div>
+
+  <!-- Profile -->
+  <dialog id="profileDialog" aria-labelledby="profileTitle">
+    <div class="dialog-body">
+      <div class="dialog-head">
+        <h2 class="dialog-title" id="profileTitle">My profile</h2>
+        <button id="profileCloseButton" class="icon-btn" type="button" aria-label="Close profile">
+          <svg class="icon" aria-hidden="true"><use href="/static/icons/sprite.svg#i-x"/></svg>
+        </button>
+      </div>
+
+      <div class="profile-top">
+        <span class="avatar avatar-lg" data-avatar></span>
+        <div class="profile-photo-actions">
+          <button id="changePhotoButton" class="btn btn-secondary btn-sm" type="button">
+            <svg class="icon" aria-hidden="true"><use href="/static/icons/sprite.svg#i-camera"/></svg>Change photo
+          </button>
+          <button id="removePhotoButton" class="btn btn-danger btn-sm" type="button" hidden>Remove photo</button>
+        </div>
+        <input id="photoInput" type="file" accept="image/*" hidden>
+      </div>
+
+      <form id="nicknameForm" class="field">
+        <label class="field-label" for="nicknameInput">What should we call you?</label>
+        <input id="nicknameInput" class="input" type="text" maxlength="30" autocomplete="nickname" placeholder="Your nickname">
+        <p class="field-help">Leave it empty to use <span id="nicknamePlaceholder">your first name</span>. This is saved on this device.</p>
+        <div class="dialog-actions"><button class="btn btn-primary" type="submit">Save name</button></div>
+      </form>
+
+      <p id="profileMessage" class="toast" role="status" aria-live="polite" hidden></p>
+
+      <div class="profile-account">
+        <p id="profileFullName"></p>
+        <p id="profileEmail" hidden></p>
+      </div>
+
+      <div class="dialog-actions">
+        <button id="logoutButton" class="btn btn-secondary" type="button">
+          <svg class="icon" aria-hidden="true"><use href="/static/icons/sprite.svg#i-log-out"/></svg>Log out
+        </button>
+      </div>
     </div>
-  </section>
+  </dialog>
 
-  <div id="successOverlay" class="review-overlay" hidden></div>
-  <section id="successPanel" class="review-panel" hidden role="dialog" aria-modal="true" aria-label="Document added">
-    <h2 class="review-title" id="successTitle">Added to your care information.</h2>
-    <div id="successChanges" class="review-sections"></div>
-    <div class="review-actions">
-      <button id="successCloseButton" type="button" class="review-button review-button-primary">Done</button>
+  <!-- Document review -->
+  <dialog id="reviewDialog" class="wide" aria-labelledby="reviewTitle">
+    <div class="dialog-body">
+      <h2 class="dialog-title" id="reviewTitle">Does this look correct?</h2>
+      <p id="reviewSubtitle" class="review-subtitle"></p>
+      <p id="reviewEmptyNote" class="review-empty-note" hidden>We couldn't confidently identify any care information in this document.</p>
+      <div id="reviewSections" class="review-sections"></div>
+      <p id="reviewError" class="review-error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button id="reviewCancelButton" type="button" class="btn btn-secondary">Cancel</button>
+        <button id="reviewConfirmButton" type="button" class="btn btn-primary">Confirm &amp; add</button>
+      </div>
     </div>
-  </section>
-
-  <script>
-    const user = JSON.parse(localStorage.getItem("ypia_user") || "null");
-    if (!user) {
-      window.location.replace("/login");
-    } else if (user.role !== "parent") {
-      window.location.replace("/");
-    }
-
-    async function loadStreak() {
-      if (!user?.id) return;
-      try {
-        const response = await fetch(`/api/parent/streak?userId=${encodeURIComponent(user.id)}`);
-        if (!response.ok) return;
-        const data = await response.json();
-        const streakDisplay = document.getElementById("streakDisplay");
-        const streakCount = document.getElementById("streakCount");
-        if (streakDisplay && streakCount && data.streak > 0) {
-          streakCount.textContent = data.streak;
-          streakDisplay.hidden = false;
-        }
-      } catch {
-        // Non-fatal: streak just won't show if this fails.
-      }
-    }
-    loadStreak();
-
-    const firstName = (user?.fullName || "").trim().split(" ")[0] || "there";
-
-    function updateGreeting() {
-      const hour = new Date().getHours();
-      const period = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
-      const greetingEl = document.getElementById("greeting");
-      if (greetingEl) greetingEl.textContent = `Good ${period}, ${firstName}`;
-    }
-    updateGreeting();
-    setInterval(updateGreeting, 60000);
-
-    function getInitials(fullName) {
-      const parts = (fullName || "").trim().split(/\s+/).filter(Boolean);
-      if (parts.length === 0) return "?";
-      return (parts[0][0] + (parts[1]?.[0] || "")).toUpperCase();
-    }
-
-    function setupAvatarFallback(imageId, initialsId) {
-      const img = document.getElementById(imageId);
-      const initials = document.getElementById(initialsId);
-      if (!img || !initials) return;
-      initials.textContent = getInitials(user?.fullName);
-      img.addEventListener("error", () => {
-        img.hidden = true;
-        initials.hidden = false;
-      }, { once: true });
-    }
-    setupAvatarFallback("avatarImage", "avatarInitials");
-    setupAvatarFallback("profileAvatarImage", "profileAvatarInitials");
-
-    const profileNameEl = document.getElementById("profileName");
-    if (profileNameEl) profileNameEl.textContent = user?.fullName || "Parent";
-    if (user?.email) {
-      const profileEmailEl = document.getElementById("profileEmail");
-      if (profileEmailEl) {
-        profileEmailEl.textContent = user.email;
-        profileEmailEl.hidden = false;
-      }
-    }
-
-    const avatarButton = document.getElementById("avatarButton");
-    const profilePanel = document.getElementById("profilePanel");
-    const profileOverlay = document.getElementById("profileOverlay");
-
-    function openProfilePanel() {
-      profilePanel.hidden = false;
-      profileOverlay.hidden = false;
-      avatarButton.setAttribute("aria-expanded", "true");
-    }
-    function closeProfilePanel() {
-      profilePanel.hidden = true;
-      profileOverlay.hidden = true;
-      avatarButton.setAttribute("aria-expanded", "false");
-    }
-    avatarButton.addEventListener("click", () => {
-      if (profilePanel.hidden) openProfilePanel();
-      else closeProfilePanel();
-    });
-    profileOverlay.addEventListener("click", closeProfilePanel);
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !profilePanel.hidden) closeProfilePanel();
-    });
-
-    document.getElementById("logoutButton").addEventListener("click", () => {
-      localStorage.removeItem("ypia_user");
-      window.location.href = "/login";
-    });
-
-    const uploadToast = document.getElementById("uploadToast");
-    let uploadToastTimer = null;
-    function showUploadToast(message, isError) {
-      uploadToast.textContent = message;
-      uploadToast.classList.toggle("toast-error", Boolean(isError));
-      uploadToast.hidden = false;
-      clearTimeout(uploadToastTimer);
-      uploadToastTimer = setTimeout(() => {
-        uploadToast.hidden = true;
-      }, isError ? 5000 : 4000);
-    }
-
-    const uploadInput = document.createElement("input");
-    uploadInput.type = "file";
-    uploadInput.accept = ".jpg,.jpeg,.png,.pdf";
-    uploadInput.hidden = true;
-    document.body.append(uploadInput);
-
-    document.getElementById("uploadButton").addEventListener("click", () => {
-      uploadInput.click();
-    });
-
-    uploadInput.addEventListener("change", async () => {
-      const file = uploadInput.files?.[0];
-      if (!file || !user?.id) return;
-
-      showUploadToast("Reading document...", false);
-      const formData = new FormData();
-      formData.append("document", file);
-      formData.append("userId", user.id);
-
-      try {
-        const response = await fetch("/api/documents", {
-          method: "POST",
-          body: formData,
-        });
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok) {
-          showUploadToast((data && data.error) || "We couldn't process this document. Try another PDF or image.", true);
-          return;
-        }
-
-        if (!data.documentId) {
-          showUploadToast("We couldn't process this document. Try another PDF or image.", true);
-          return;
-        }
-
-        uploadToast.hidden = true;
-        openReview(data.documentId, data.review);
-      } catch {
-        showUploadToast("Something went wrong. Please try again.", true);
-      } finally {
-        uploadInput.value = "";
-      }
-    });
-
-    // ---- Document review / confirm ----
-
-    const MEDICATION_STATUS_OPTIONS = [
-      { value: "started", label: "Newly started" },
-      { value: "active", label: "Currently active" },
-      { value: "changed", label: "Dose or frequency changed" },
-      { value: "stopped", label: "Discontinued" },
-      { value: "unknown", label: "Not specified in document" },
-    ];
-
-    const REVIEW_SECTIONS = [
-      {
-        key: "medications",
-        title: "Medications",
-        fields: [
-          { name: "name", label: "Medication" },
-          { name: "dose", label: "Dose" },
-          { name: "frequency", label: "Frequency" },
-          { name: "status", label: "Status", type: "select", options: MEDICATION_STATUS_OPTIONS },
-        ],
-        summary: (item) => {
-          const statusLabel = MEDICATION_STATUS_OPTIONS.find((o) => o.value === item.status)?.label || item.status;
-          const parts = [item.dose, item.frequency].filter(Boolean).join(", ");
-          return { primary: item.name || "(unnamed medication)", secondary: [parts, statusLabel].filter(Boolean).join(" · ") };
-        },
-        empty: () => ({ name: "", dose: "", frequency: "", status: "unknown" }),
-      },
-      {
-        key: "appointments",
-        title: "Appointments / Follow-up",
-        fields: [
-          { name: "type", label: "Type" },
-          { name: "provider", label: "Provider" },
-          { name: "date", label: "Date" },
-          { name: "time", label: "Time" },
-          { name: "location", label: "Location" },
-        ],
-        summary: (item) => ({
-          primary: [item.type || "Appointment", item.provider ? `with ${item.provider}` : ""].filter(Boolean).join(" "),
-          secondary: [item.date, item.time, item.location].filter(Boolean).join(" · "),
-        }),
-        empty: () => ({ type: "", provider: "", date: "", time: "", location: "" }),
-      },
-      {
-        key: "followUps",
-        title: "Other Instructions",
-        fields: [
-          { name: "description", label: "Description" },
-          { name: "timeframe", label: "Timeframe" },
-        ],
-        summary: (item) => ({ primary: item.description || "(no description)", secondary: item.timeframe || "" }),
-        empty: () => ({ description: "", timeframe: "" }),
-      },
-    ];
-
-    let draft = null; // { documentId, documentTypeLabel, medications:[], appointments:[], followUps:[], instructions:[] }
-
-    const reviewOverlay = document.getElementById("reviewOverlay");
-    const reviewPanel = document.getElementById("reviewPanel");
-    const reviewSubtitle = document.getElementById("reviewSubtitle");
-    const reviewEmptyNote = document.getElementById("reviewEmptyNote");
-    const reviewSections = document.getElementById("reviewSections");
-    const reviewError = document.getElementById("reviewError");
-    const reviewCancelButton = document.getElementById("reviewCancelButton");
-    const reviewConfirmButton = document.getElementById("reviewConfirmButton");
-
-    const successOverlay = document.getElementById("successOverlay");
-    const successPanel = document.getElementById("successPanel");
-    const successTitle = document.getElementById("successTitle");
-    const successChanges = document.getElementById("successChanges");
-    const successCloseButton = document.getElementById("successCloseButton");
-
-    function openReview(documentId, review) {
-      draft = {
-        documentId,
-        documentType: review.documentType,
-        documentTypeLabel: review.documentTypeLabel,
-        medications: review.medications.map((m) => ({ name: m.name, dose: m.dose || "", frequency: m.frequency || "", status: m.status })),
-        appointments: review.appointments.map((a) => ({ ...a, type: a.type || "", provider: a.provider || "", date: a.date || "", time: a.time || "", location: a.location || "" })),
-        followUps: review.followUps.map((f) => ({ description: f.description, timeframe: f.timeframe || "" })),
-        instructions: [...review.instructions],
-      };
-      reviewSubtitle.textContent = `From your ${review.documentTypeLabel.toLowerCase()}. Review the details below before adding them.`;
-      reviewEmptyNote.hidden = !review.isEmpty;
-      reviewError.hidden = true;
-      reviewError.textContent = "";
-      reviewConfirmButton.disabled = false;
-      reviewConfirmButton.textContent = "Confirm & Add to Y.P.I.A";
-      renderReviewSections();
-      reviewOverlay.hidden = false;
-      reviewPanel.hidden = false;
-    }
-
-    function closeReview() {
-      reviewOverlay.hidden = true;
-      reviewPanel.hidden = true;
-      draft = null;
-    }
-
-    function itemField(container, item, field) {
-      const wrap = el("label", "review-field");
-      wrap.append(el("span", "review-field-label", field.label));
-      let input;
-      if (field.type === "select") {
-        input = document.createElement("select");
-        for (const option of field.options) {
-          const opt = document.createElement("option");
-          opt.value = option.value;
-          opt.textContent = option.label;
-          if (item[field.name] === option.value) opt.selected = true;
-          input.append(opt);
-        }
-      } else {
-        input = document.createElement("input");
-        input.type = "text";
-        input.value = item[field.name] || "";
-      }
-      input.className = "review-input";
-      input.addEventListener("input", () => {
-        item[field.name] = input.value;
-      });
-      input.addEventListener("change", () => {
-        item[field.name] = input.value;
-      });
-      wrap.append(input);
-      container.append(wrap);
-    }
-
-    function renderItemRow(section, item, index) {
-      const row = el("div", "review-item");
-      if (item._editing) {
-        const fieldsWrap = el("div", "review-fields");
-        for (const field of section.fields) itemField(fieldsWrap, item, field);
-        row.append(fieldsWrap);
-
-        const actions = el("div", "review-item-actions");
-        const doneButton = el("button", "review-link-button", "Done");
-        doneButton.type = "button";
-        doneButton.addEventListener("click", () => {
-          item._editing = false;
-          renderReviewSections();
-        });
-        actions.append(doneButton);
-        row.append(actions);
-      } else {
-        const summary = section.summary(item);
-        const text = el("div", "review-item-text");
-        text.append(el("p", "review-item-primary", summary.primary));
-        if (summary.secondary) text.append(el("p", "review-item-secondary", summary.secondary));
-        row.append(text);
-
-        const actions = el("div", "review-item-actions");
-        const editButton = el("button", "review-link-button", "Edit");
-        editButton.type = "button";
-        editButton.addEventListener("click", () => {
-          item._editing = true;
-          renderReviewSections();
-        });
-        const removeButton = el("button", "review-link-button review-link-remove", "Remove");
-        removeButton.type = "button";
-        removeButton.addEventListener("click", () => {
-          draft[section.key] = draft[section.key].filter((candidate) => candidate !== item);
-          renderReviewSections();
-        });
-        actions.append(editButton, removeButton);
-        row.append(actions);
-      }
-      return row;
-    }
-
-    function el(tag, className, text) {
-      const node = document.createElement(tag);
-      if (className) node.className = className;
-      if (text !== undefined) node.textContent = text;
-      return node;
-    }
-
-    function renderInstructionsSection() {
-      const items = draft.instructions;
-      if (items.length === 0) return null;
-
-      const section = el("div", "review-section");
-      section.append(el("h3", "review-section-title", "Notes From the Document"));
-      items.forEach((text, index) => {
-        const row = el("div", "review-item");
-        row.append(el("p", "review-item-primary", text));
-        const actions = el("div", "review-item-actions");
-        const removeButton = el("button", "review-link-button review-link-remove", "Remove");
-        removeButton.type = "button";
-        removeButton.addEventListener("click", () => {
-          draft.instructions = draft.instructions.filter((_, i) => i !== index);
-          renderReviewSections();
-        });
-        actions.append(removeButton);
-        row.append(actions);
-        section.append(row);
-      });
-      return section;
-    }
-
-    function renderReviewSections() {
-      reviewSections.replaceChildren();
-      for (const section of REVIEW_SECTIONS) {
-        const items = draft[section.key];
-        if (items.length === 0) continue;
-        const sectionEl = el("div", "review-section");
-        sectionEl.append(el("h3", "review-section-title", section.title));
-        items.forEach((item, index) => sectionEl.append(renderItemRow(section, item, index)));
-        reviewSections.append(sectionEl);
-      }
-      const instructionsSection = renderInstructionsSection();
-      if (instructionsSection) reviewSections.append(instructionsSection);
-    }
-
-    reviewCancelButton.addEventListener("click", closeReview);
-    reviewOverlay.addEventListener("click", closeReview);
-
-    reviewConfirmButton.addEventListener("click", async () => {
-      if (!draft || !user?.id) return;
-      reviewConfirmButton.disabled = true;
-      reviewConfirmButton.textContent = "Saving...";
-      reviewError.hidden = true;
-
-      const editedData = {
-        documentType: draft.documentType,
-        medications: draft.medications.map(({ name, dose, frequency, status }) => ({
-          name, dose: dose || null, frequency: frequency || null, status,
-        })),
-        appointments: draft.appointments.map(({ type, provider, date, time, location }) => ({
-          type: type || null, provider: provider || null, date: date || null, time: time || null, location: location || null,
-        })),
-        followUps: draft.followUps.map(({ description, timeframe }) => ({ description, timeframe: timeframe || null })),
-        instructions: draft.instructions,
-      };
-      const documentId = draft.documentId;
-
-      try {
-        const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/confirm`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: user.id, editedData }),
-        });
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok) {
-          reviewError.textContent = (data && data.error) || "We couldn't save this information. Please try again.";
-          reviewError.hidden = false;
-          reviewConfirmButton.disabled = false;
-          reviewConfirmButton.textContent = "Confirm & Add to Y.P.I.A";
-          return;
-        }
-
-        closeReview();
-        openSuccess(data);
-      } catch {
-        reviewError.textContent = "Something went wrong. Please try again.";
-        reviewError.hidden = false;
-        reviewConfirmButton.disabled = false;
-        reviewConfirmButton.textContent = "Confirm & Add to Y.P.I.A";
-      }
-    });
-
-    function openSuccess(result) {
-      successTitle.textContent =
-        result.status === "already_confirmed"
-          ? "This document was already added."
-          : `Added to ${firstName === "there" ? "your" : firstName + "'s"} care information.`;
-
-      successChanges.replaceChildren();
-      if (result.summary && result.summary.length > 0) {
-        const section = el("div", "review-section");
-        section.append(el("h3", "review-section-title", "What Changed"));
-        for (const change of result.summary) {
-          section.append(el("p", "review-item-primary", change.summary));
-        }
-        successChanges.append(section);
-      } else if (result.status !== "already_confirmed") {
-        successChanges.append(el("p", "review-empty-note", "Nothing new to update this time — your records already reflect this."));
-      }
-
-      successOverlay.hidden = false;
-      successPanel.hidden = false;
-    }
-
-    function closeSuccess() {
-      successOverlay.hidden = true;
-      successPanel.hidden = true;
-    }
-
-    successCloseButton.addEventListener("click", closeSuccess);
-    successOverlay.addEventListener("click", closeSuccess);
-  </script>
-
-  <script type="module">
-    import { Conversation } from "https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.25.0/+esm";
-    import { createConversationSync } from "/static/js/voice-conversation-sync.mjs";
-
-    const voiceButton = document.getElementById("voiceButton");
-    const voiceStatus = document.getElementById("voiceStatus");
-    const user = JSON.parse(localStorage.getItem("ypia_user") || "null");
-    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    let conversation = null;
-    let activeConversationId = null;
-    let activeSession = null;
-    let currentMode = "listening";
-    let orbAnimationFrame = null;
-    const syncConversation = createConversationSync();
-
-    function setStatus(text) {
-      voiceStatus.textContent = text;
-    }
-
-    function animateOrb() {
-      let volume = 0;
-      if (conversation) {
-        try {
-          volume = currentMode === "speaking" ? conversation.getOutputVolume() : conversation.getInputVolume();
-        } catch {
-          volume = 0;
-        }
-      }
-      const clamped = Math.max(0, Math.min(1, volume || 0));
-      const scale = prefersReducedMotion ? 1 : 1 + clamped * 0.16;
-      voiceButton.style.setProperty("--orb-scale", scale.toFixed(3));
-      orbAnimationFrame = requestAnimationFrame(animateOrb);
-    }
-
-    function startOrbAnimation() {
-      if (orbAnimationFrame) return;
-      orbAnimationFrame = requestAnimationFrame(animateOrb);
-    }
-
-    function stopOrbAnimation() {
-      if (orbAnimationFrame) {
-        cancelAnimationFrame(orbAnimationFrame);
-        orbAnimationFrame = null;
-      }
-      voiceButton.style.removeProperty("--orb-scale");
-    }
-
-    function reset() {
-      conversation = null;
-      activeConversationId = null;
-      stopOrbAnimation();
-      voiceButton.classList.remove("is-connecting", "is-active", "is-speaking");
-      voiceButton.disabled = false;
-      setStatus("Tap to talk");
-    }
-
-    async function registerConversation(userId, conversationId) {
-      try {
-        await fetch("/api/parent/voice-conversations/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, conversationId }),
-        });
-      } catch {
-        // Non-fatal: the conversation can still be synced later if this retries.
-      }
-    }
-
-    function finishConversation(session) {
-      if (session.finished) return;
-      session.finished = true;
-      if (activeSession === session) {
-        activeSession = null;
-        reset();
-      }
-
-      const endedConversationId = session.id;
-      if (user?.id && endedConversationId) {
-        // A short call can end before registration finishes. UI cleanup never waits.
-        void session.registration.then(() => syncConversation(user.id, endedConversationId));
-      }
-    }
-
-    async function startConversation() {
-      if (activeSession) return;
-      const session = { id: null, connection: null, registration: Promise.resolve(), ending: false, finished: false };
-      activeSession = session;
-      voiceButton.disabled = true;
-      voiceButton.classList.add("is-connecting");
-      setStatus("Connecting...");
-
-      try {
-        const permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        permissionStream.getTracks().forEach((track) => track.stop());
-      } catch {
-        finishConversation(session);
-        setStatus("Microphone access denied");
-        return;
-      }
-
-      try {
-        const response = await fetch("/api/elevenlabs/signed-url");
-        if (!response.ok) throw new Error("signed-url request failed");
-        const { signedUrl } = await response.json();
-
-        session.connection = await Conversation.startSession({
-          signedUrl,
-          dynamicVariables: {
-            user_id: user?.id ?? "",
-            parent_name: user?.fullName ?? "",
-          },
-          clientTools: {
-            get_next_appointment: async () => {
-              if (!user?.id) {
-                return { status: "error", message: "No logged-in parent found." };
-              }
-
-              try {
-                const apiResponse = await fetch(
-                  `/api/parent/next-appointment?userId=${encodeURIComponent(user.id)}`
-                );
-                if (!apiResponse.ok) {
-                  return { status: "error", message: "Could not retrieve appointment information right now." };
-                }
-
-                const data = await apiResponse.json();
-                if (!data.appointment) {
-                  return { status: "none", message: "No upcoming appointment is currently recorded." };
-                }
-
-                return { status: "ok", appointment: data.appointment };
-              } catch {
-                return { status: "error", message: "Could not retrieve appointment information right now." };
-              }
-            },
-            get_current_medications: async () => {
-              if (!user?.id) {
-                return { status: "error", message: "No logged-in parent found." };
-              }
-
-              try {
-                const apiResponse = await fetch(
-                  `/api/parent/current-medications?userId=${encodeURIComponent(user.id)}`
-                );
-                if (!apiResponse.ok) {
-                  return { status: "error", message: "Could not retrieve medication information right now." };
-                }
-
-                const data = await apiResponse.json();
-                if (!data.medications || data.medications.length === 0) {
-                  return { status: "none", message: "No active medications are currently recorded." };
-                }
-
-                return { status: "ok", medications: data.medications };
-              } catch {
-                return { status: "error", message: "Could not retrieve medication information right now." };
-              }
-            },
-            get_latest_changes: async () => {
-              if (!user?.id) {
-                return { status: "error", message: "No logged-in parent found." };
-              }
-
-              try {
-                const apiResponse = await fetch(
-                  `/api/parent/latest-changes?userId=${encodeURIComponent(user.id)}`
-                );
-                if (!apiResponse.ok) {
-                  return { status: "error", message: "Could not retrieve recent changes right now." };
-                }
-
-                const data = await apiResponse.json();
-                if (data.status === "not_enough_history") {
-                  return { status: "none", message: "There isn't enough document history yet to compare changes." };
-                }
-                if (data.status === "malformed_history") {
-                  return { status: "error", message: "Recent records could not be compared right now." };
-                }
-                if (data.status === "no_changes" || !data.changes || data.changes.length === 0) {
-                  return { status: "none", message: "No changes were found between your two most recent records." };
-                }
-
-                return { status: "ok", changes: data.changes };
-              } catch {
-                return { status: "error", message: "Could not retrieve recent changes right now." };
-              }
-            },
-            get_parent_background: async () => {
-              if (!user?.id) {
-                return { status: "error", message: "No logged-in parent found." };
-              }
-
-              try {
-                const apiResponse = await fetch(
-                  `/api/parent/background?userId=${encodeURIComponent(user.id)}`
-                );
-                if (!apiResponse.ok) {
-                  return { status: "error", message: "Could not retrieve background information right now." };
-                }
-
-                const data = await apiResponse.json();
-                const memories = Array.isArray(data.memories) ? data.memories : [];
-                if (data.status !== "ok" || (!data.background && memories.length === 0)) {
-                  return { status: "none", message: "Y.P.I.A does not currently have background information for you." };
-                }
-
-                return { status: "ok", name: data.name, background: data.background, memories };
-              } catch {
-                return { status: "error", message: "Could not retrieve background information right now." };
-              }
-            },
-            get_parent_schedule: async ({ range } = {}) => {
-              if (!user?.id) {
-                return { status: "error", message: "No logged-in parent found." };
-              }
-
-              const allowedRanges = ["today", "tomorrow", "week", "upcoming"];
-              if (!allowedRanges.includes(range)) {
-                return { status: "error", message: "range must be one of: today, tomorrow, week, upcoming." };
-              }
-
-              let timezone = "America/Chicago";
-              try {
-                timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || timezone;
-              } catch {
-                // Keep the fallback.
-              }
-
-              try {
-                const apiResponse = await fetch(
-                  `/api/parent/schedule?userId=${encodeURIComponent(user.id)}&range=${encodeURIComponent(range)}&timezone=${encodeURIComponent(timezone)}`
-                );
-                if (!apiResponse.ok) {
-                  return { status: "error", message: "Could not retrieve schedule information right now." };
-                }
-
-                const data = await apiResponse.json();
-                if (!data.events || data.events.length === 0) {
-                  return { status: "none", message: "No schedule events were found for that time range.", range };
-                }
-
-                return { status: "ok", range, events: data.events };
-              } catch {
-                return { status: "error", message: "Could not retrieve schedule information right now." };
-              }
-            },
-            create_caregiver_action: async ({ text, appointmentId, scheduledDate, scheduledTime, scheduledEndTime } = {}) => {
-              if (!user?.id) {
-                return { status: "error", message: "No logged-in parent found." };
-              }
-              if (!text || typeof text !== "string" || !text.trim()) {
-                return { status: "error", message: "No request text was provided." };
-              }
-
-              try {
-                const apiResponse = await fetch("/api/parent/caregiver-actions", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    userId: user.id,
-                    text: text.trim(),
-                    conversationId: activeConversationId,
-                    appointmentId: typeof appointmentId === "string" ? appointmentId : null,
-                    scheduledDate: scheduledDate ?? null,
-                    scheduledTime: scheduledTime ?? null,
-                    scheduledEndTime: scheduledEndTime ?? null,
-                  }),
-                });
-
-                if (!apiResponse.ok) {
-                  return { status: "error", message: "Could not send that request to your caregiver right now." };
-                }
-
-                return { status: "ok" };
-              } catch {
-                return { status: "error", message: "Could not send that request to your caregiver right now." };
-              }
-            },
-          },
-          onConnect: ({ conversationId }) => {
-            if (activeSession !== session || session.finished) return;
-            session.id = conversationId;
-            activeConversationId = conversationId;
-            currentMode = "listening";
-            voiceButton.classList.remove("is-connecting");
-            voiceButton.classList.add("is-active");
-            setStatus("Tap to end");
-            startOrbAnimation();
-            if (user?.id && conversationId) {
-              session.registration = registerConversation(user.id, conversationId);
-            }
-          },
-          onDisconnect: () => finishConversation(session),
-          onModeChange: ({ mode }) => {
-            if (activeSession !== session) return;
-            currentMode = mode;
-            voiceButton.classList.toggle("is-speaking", mode === "speaking");
-            setStatus(mode === "speaking" ? "Speaking..." : "Listening...");
-          },
-          onError: () => {
-            if (activeSession !== session) return;
-            setStatus("Voice error. Tap to end and retry.");
-          },
-        });
-
-        if (activeSession === session && !session.finished) {
-          conversation = session.connection;
-          voiceButton.disabled = false;
-        }
-      } catch {
-        if (activeSession === session) {
-          finishConversation(session);
-          setStatus("Connection failed. Tap to retry.");
-        }
-      }
-    }
-
-    async function endConversation() {
-      const session = activeSession;
-      if (!session || session.ending) return;
-      session.ending = true;
-      voiceButton.disabled = true;
-      try {
-        await session.connection?.endSession();
-      } catch {
-        // Still restore the UI and attempt sync for the captured conversation.
-      } finally {
-        finishConversation(session);
-      }
-    }
-
-    voiceButton.addEventListener("click", () => {
-      if (conversation) {
-        endConversation();
-      } else {
-        startConversation();
-      }
-    });
-  </script>
+  </dialog>
+
+  <!-- Document added -->
+  <dialog id="successDialog" class="wide" aria-labelledby="successTitle">
+    <div class="dialog-body">
+      <h2 class="dialog-title" id="successTitle">Added to your care information.</h2>
+      <div id="successChanges" class="review-sections"></div>
+      <div class="dialog-actions">
+        <button id="successCloseButton" type="button" class="btn btn-primary">Done</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script type="module" src="/static/js/parent/app.js"></script>
 </body>
 </html>

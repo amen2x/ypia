@@ -1,0 +1,97 @@
+/* Y.P.I.A orb component styles. Pair with /static/js/parent/ypia-orb.js.
+   Size it with --orb-size (the sphere); the button is 1.7x so effects have room. */
+
+.ypia-orb {
+  --orb-size: 136px;
+  --orb-level: 0;
+  --glow: 120, 190, 120;          /* rgb of the soft halo */
+  --tint-a: #fbf7e4;               /* sphere highlight */
+  --tint-b: #dcecd0;               /* sphere body */
+  --rim: #fffdf6;
+  --ink: #1f4a2a;                  /* face colour */
+  position: relative; display: grid; place-items: center;
+  width: calc(var(--orb-size) * 1.4); height: calc(var(--orb-size) * 1.4);
+  max-width: 100%; border: 0; background: none; padding: 0; border-radius: 50%;
+  -webkit-tap-highlight-color: transparent; color: var(--ink);
+}
+.ypia-orb:disabled { cursor: progress; }
+.ypia-orb > * { position: absolute; pointer-events: none; }
+
+.ypia-orb__aura {
+  width: 100%; height: 100%; border-radius: 50%;
+  background: radial-gradient(circle, rgba(var(--glow), var(--aura, 0.16)) 0%, rgba(var(--glow), calc(var(--aura, 0.16) * 0.3)) 50%, transparent 70%);
+  transform: scale(calc(1 + var(--orb-level) * 0.08)); transition: transform 0.1s linear, background 0.4s;
+}
+
+.ypia-orb__sphere {
+  width: var(--orb-size); height: var(--orb-size); border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 34% 26%, var(--tint-a) 0%, var(--tint-b) 62%, color-mix(in srgb, var(--tint-b) 70%, #4a9a58) 100%);
+  border: 3px solid var(--rim);
+  box-shadow: 0 0 0 1px rgba(23, 63, 35, 0.14);
+  transform: scale(calc(1 + var(--orb-level) * 0.05)); transition: transform 0.1s linear, background 0.4s;
+}
+.ypia-orb__leaf { position: absolute; left: 0; bottom: 0; width: 100%; height: 42%; }
+.ypia-orb__shine {
+  position: absolute; left: 14%; top: 8%; width: 46%; height: 30%; border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.75), transparent 70%);
+}
+.ypia-orb__face { position: absolute; left: 20%; top: 26%; width: 60%; stroke: var(--ink); }
+.ypia-orb__face .face-sad { display: none; }
+
+/* Side effects, hidden unless a state needs them. */
+.ypia-orb__arcs, .ypia-orb__wing, .ypia-orb__spinner, .ypia-orb__bubbles, .ypia-orb__badge { opacity: 0; transition: opacity 0.3s; }
+.ypia-orb__arcs { height: 46%; stroke: rgba(var(--glow), 0.8); stroke-width: 2.5; }
+.ypia-orb__arcs--left { left: 4%; }
+.ypia-orb__arcs--right { right: 4%; transform: scaleX(-1); }
+.ypia-orb__wing { height: 34%; fill: rgba(var(--glow), 0.5); }
+.ypia-orb__wing--left { left: 2%; }
+.ypia-orb__wing--right { right: 2%; transform: scaleX(-1); }
+.ypia-orb__spinner { width: calc(var(--orb-size) * 1.14); height: calc(var(--orb-size) * 1.14); stroke: #4aa355; }
+.ypia-orb__bubbles { width: calc(var(--orb-size) * 1.2); height: calc(var(--orb-size) * 1.2); }
+.ypia-orb__bubbles .b { position: absolute; border-radius: 50%; background: #8fb8e8; }
+.ypia-orb__bubbles .b1 { width: 10%; height: 10%; left: 6%; top: 14%; }
+.ypia-orb__bubbles .b2 { width: 7%; height: 7%; right: 8%; top: 4%; background: #a9b4ee; }
+.ypia-orb__bubbles .b3 { width: 6%; height: 6%; right: 2%; bottom: 22%; }
+.ypia-orb__badge {
+  top: 14%; right: 18%; width: 2.1rem; height: 2.1rem; border-radius: 50%;
+  background: #e5604f; color: #fff; font-weight: 700; font-size: 1.2rem; line-height: 2.1rem; text-align: center;
+  box-shadow: 0 2px 8px rgba(163, 38, 30, 0.35);
+}
+
+/* ---- States ---- */
+.ypia-orb[data-state="connecting"] { --glow: 150, 190, 150; }
+.ypia-orb[data-state="connecting"] .ypia-orb__spinner { opacity: 1; }
+
+.ypia-orb[data-state="listening"] { --glow: 80, 200, 100; --tint-b: #cfeec3; }
+.ypia-orb[data-state="listening"] .ypia-orb__arcs { opacity: 1; }
+
+.ypia-orb[data-state="thinking"] { --glow: 120, 160, 235; --tint-a: #f3f3ff; --tint-b: #cddcf4; --ink: #2a4a7a; }
+.ypia-orb[data-state="thinking"] .ypia-orb__bubbles { opacity: 1; }
+
+.ypia-orb[data-state="speaking"] { --glow: 235, 200, 80; --tint-a: #fffbe0; --tint-b: #f3efc0; --ink: #5a4a12; }
+.ypia-orb[data-state="speaking"] .ypia-orb__wing { opacity: 1; }
+
+.ypia-orb[data-state="error"] { --glow: 235, 110, 100; --tint-a: #fff1ee; --tint-b: #f6d4cc; --ink: #7a2a22; }
+.ypia-orb[data-state="error"] .ypia-orb__badge { opacity: 1; }
+.ypia-orb[data-state="error"] .face-happy { display: none; }
+.ypia-orb[data-state="error"] .face-sad { display: inline; }
+.ypia-orb[data-state="error"] .ypia-orb__face { display: block; }
+
+/* ---- Subtle motion (off with reduced-motion) ---- */
+@media (prefers-reduced-motion: no-preference) {
+  .ypia-orb[data-state="idle"] .ypia-orb__aura { animation: orb-breathe 5s ease-in-out infinite; }
+  .ypia-orb[data-state="connecting"] .ypia-orb__spinner { animation: orb-spin 1.4s linear infinite; }
+  .ypia-orb[data-state="listening"] .ypia-orb__arcs { animation: orb-pulse 2s ease-in-out infinite; }
+  .ypia-orb[data-state="thinking"] .ypia-orb__bubbles { animation: orb-drift 3.2s ease-in-out infinite; }
+  .ypia-orb[data-state="speaking"] .ypia-orb__wing { animation: orb-flutter 1.3s ease-in-out infinite; }
+  .ypia-orb[data-state="error"] .ypia-orb__sphere { animation: none; }
+}
+@keyframes orb-float { 50% { translate: 0 -4px; } }
+@keyframes orb-breathe { 50% { opacity: 0.7; transform: scale(1.05); } }
+@keyframes orb-spin { to { transform: rotate(360deg); } }
+@keyframes orb-pulse { 50% { opacity: 0.45; } }
+@keyframes orb-drift { 50% { transform: translateY(-5px); } }
+@keyframes orb-flutter { 50% { transform: translateX(3px); } }
+.ypia-orb__arcs--right { animation-name: orb-pulse; }
+
+@media (max-width: 720px) { .ypia-orb { --orb-size: 128px; } }

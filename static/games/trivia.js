@@ -292,7 +292,7 @@ function showScore(completed) {
   showScreen(
     el("div", { class: "center" }, [
       el("h1", { text: completed ? `You got ${right} of ${total}!` : `You answered ${total} question${total === 1 ? "" : "s"}.` }),
-      el("p", { class: "big", text: completed ? "Your garden grew! 🌱" : "Thanks for playing! 🌱" }),
+      el("p", { class: "big", text: completed ? "Your garden grew!" : "Thanks for playing!" }),
       el("hr", { style: "border:none;border-top:2px solid var(--line);margin:24px 0" }),
       el("h2", { text: "Did you enjoy this game?" }),
       el("div", { class: "chips" }, enjoyButtons),
