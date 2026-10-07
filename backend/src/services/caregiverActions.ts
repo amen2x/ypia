@@ -4,6 +4,7 @@ const FALLBACK_TIMEZONE = "America/Chicago";
 
 export interface CaregiverAction {
   id: string;
+  parentId: string;
   text: string;
   status: string;
   source: string;
@@ -14,6 +15,8 @@ export interface CaregiverAction {
   date: string | null;
   time: string | null;
   endTime: string | null;
+  // Title of the linked appointment, when the action is tied to one.
+  appointmentTitle: string | null;
 }
 
 export interface CreateCaregiverActionInput {
@@ -25,6 +28,8 @@ export interface CreateCaregiverActionInput {
   scheduledDate: string | null;
   scheduledTime: string | null;
   scheduledEndTime: string | null;
+  // Defaults to the table default ('voice') when omitted, so existing callers are unchanged.
+  source?: string;
 }
 
 // The agent may supply an appointmentId, but it is never trusted merely because
@@ -51,22 +56,30 @@ export async function createCaregiverAction(
   const pool = getPool();
   const verifiedAppointmentId = await resolveOwnedAppointmentId(input.parentId, input.appointmentId);
 
+  const columns = [
+    "parent_id", "created_by_user_id", "action_text", "elevenlabs_conversation_id", "appointment_id",
+    "scheduled_date", "scheduled_time", "scheduled_end_time",
+  ];
+  const values: unknown[] = [
+    input.parentId,
+    input.createdByUserId,
+    input.text,
+    input.conversationId,
+    verifiedAppointmentId,
+    input.scheduledDate,
+    input.scheduledTime,
+    input.scheduledEndTime,
+  ];
+  if (input.source) {
+    columns.push("source");
+    values.push(input.source);
+  }
+
   const result = await pool.query<{ id: string; action_text: string; status: string }>(
-    `INSERT INTO caregiver_actions
-       (parent_id, created_by_user_id, action_text, elevenlabs_conversation_id, appointment_id,
-        scheduled_date, scheduled_time, scheduled_end_time)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `INSERT INTO caregiver_actions (${columns.join(", ")})
+     VALUES (${values.map((_, index) => `$${index + 1}`).join(", ")})
      RETURNING id, action_text, status`,
-    [
-      input.parentId,
-      input.createdByUserId,
-      input.text,
-      input.conversationId,
-      verifiedAppointmentId,
-      input.scheduledDate,
-      input.scheduledTime,
-      input.scheduledEndTime,
-    ]
+    values
   );
 
   const row = result.rows[0];
@@ -81,6 +94,7 @@ export async function listCaregiverActions(parentIds: string[]): Promise<Caregiv
   const pool = getPool();
   const result = await pool.query<{
     id: string;
+    parent_id: string;
     action_text: string;
     status: string;
     source: string;
@@ -90,13 +104,14 @@ export async function listCaregiverActions(parentIds: string[]): Promise<Caregiv
     elevenlabs_conversation_id: string | null;
     appt_starts_at: Date | null;
     appt_timezone: string | null;
+    appt_title: string | null;
     scheduled_date: Date | null;
     scheduled_time: string | null;
     scheduled_end_time: string | null;
   }>(
-    `SELECT ca.id, ca.action_text, ca.status, ca.source, ca.created_at, ca.completed_at,
+    `SELECT ca.id, ca.parent_id, ca.action_text, ca.status, ca.source, ca.created_at, ca.completed_at,
             ca.elevenlabs_conversation_id, p.full_name AS parent_name,
-            a.starts_at AS appt_starts_at, a.timezone AS appt_timezone,
+            a.starts_at AS appt_starts_at, a.timezone AS appt_timezone, a.title AS appt_title,
             ca.scheduled_date, ca.scheduled_time, ca.scheduled_end_time
      FROM caregiver_actions ca
      JOIN parents p ON p.id = ca.parent_id
@@ -121,6 +136,7 @@ export async function listCaregiverActions(parentIds: string[]): Promise<Caregiv
       const hasExplicitTime = localTime !== "12:00 AM";
       return {
         id: row.id,
+        parentId: row.parent_id,
         text: row.action_text,
         status: row.status,
         source: row.source,
@@ -133,6 +149,7 @@ export async function listCaregiverActions(parentIds: string[]): Promise<Caregiv
         date: startsAt.toLocaleDateString("en-CA", { timeZone }),
         time: hasExplicitTime ? localTime : null,
         endTime: null,
+        appointmentTitle: row.appt_title ?? "Appointment",
       };
     }
 
@@ -146,6 +163,7 @@ export async function listCaregiverActions(parentIds: string[]): Promise<Caregiv
 
     return {
       id: row.id,
+      parentId: row.parent_id,
       text: row.action_text,
       status: row.status,
       source: row.source,
@@ -156,6 +174,7 @@ export async function listCaregiverActions(parentIds: string[]): Promise<Caregiv
       date: scheduledDate,
       time: scheduledDate && row.scheduled_time ? row.scheduled_time.slice(0, 5) : null,
       endTime: scheduledDate && row.scheduled_time && row.scheduled_end_time ? row.scheduled_end_time.slice(0, 5) : null,
+      appointmentTitle: null,
     };
   });
 }

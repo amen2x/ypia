@@ -29,6 +29,13 @@ import {
 } from "./services/caregiverActions.js";
 import { registerVoiceConversation, syncVoiceConversation } from "./services/voiceConversations.js";
 import { listSharedDocuments } from "./services/caregiverDocuments.js";
+import {
+  isApprovedCaregiverFor,
+  listApprovedParents,
+  listChangeSourceDocuments,
+  listConfirmedMedications,
+  listUpcomingAppointments,
+} from "./services/caregiverOverview.js";
 import { checkInParent } from "./services/checkIns.js";
 import { DatabaseConfigurationError, getPool } from "./db.js";
 import { scoreUnreviewedSchedule } from "./services/schedulePoints.js";
@@ -635,6 +642,117 @@ export function createApp() {
     } catch (error: unknown) {
       console.error("Failed to update caregiver action", error);
       response.status(500).json({ error: "Unable to update caregiver action" });
+    }
+  });
+
+  // ---- Caregiver workspace: read-only views of confirmed care information ----
+  // Every route requires userId + parentId and an *approved* caregiver relationship.
+  async function resolveApprovedParent(request: Request, response: Response): Promise<string | null> {
+    const userId = parseUserId(request.query.userId);
+    const parentId = parseUserId(request.query.parentId);
+    if (!userId || !parentId) {
+      response.status(400).json({ error: "userId and parentId are required" });
+      return null;
+    }
+    if (!(await isApprovedCaregiverFor(userId, parentId))) {
+      response.status(403).json({ error: "You are not linked to this parent" });
+      return null;
+    }
+    return parentId;
+  }
+
+  app.get("/api/caregiver/parents", async (request, response) => {
+    const userId = parseUserId(request.query.userId);
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+
+    try {
+      response.json({ parents: await listApprovedParents(userId) });
+    } catch (error: unknown) {
+      console.error("Failed to load linked parents", error);
+      response.status(500).json({ error: "Unable to load linked parents" });
+    }
+  });
+
+  app.get("/api/caregiver/medications", async (request, response) => {
+    try {
+      const parentId = await resolveApprovedParent(request, response);
+      if (!parentId) return;
+      response.json({ medications: await listConfirmedMedications(parentId) });
+    } catch (error: unknown) {
+      console.error("Failed to load caregiver medications", error);
+      response.status(500).json({ error: "Unable to load medications" });
+    }
+  });
+
+  app.get("/api/caregiver/appointments", async (request, response) => {
+    try {
+      const parentId = await resolveApprovedParent(request, response);
+      if (!parentId) return;
+      response.json({ appointments: await listUpcomingAppointments(parentId) });
+    } catch (error: unknown) {
+      console.error("Failed to load caregiver appointments", error);
+      response.status(500).json({ error: "Unable to load appointments" });
+    }
+  });
+
+  app.get("/api/caregiver/changes", async (request, response) => {
+    try {
+      const parentId = await resolveApprovedParent(request, response);
+      if (!parentId) return;
+      const [latest, sources] = await Promise.all([getLatestChanges(parentId), listChangeSourceDocuments(parentId)]);
+      response.json({ ...latest, sources });
+    } catch (error: unknown) {
+      console.error("Failed to load caregiver changes", error);
+      response.status(500).json({ error: "Unable to load care changes" });
+    }
+  });
+
+  // A caregiver's own task. Only explicit scheduled* fields are stored; dates are
+  // never inferred from the text (same rule as parent-created requests).
+  app.post("/api/caregiver/actions", async (request, response) => {
+    const body = request.body as Record<string, unknown> | undefined;
+    const userId = parseUserId(body?.userId);
+    const parentId = parseUserId(body?.parentId);
+    const text = parseActionText(body?.text);
+    const scheduledFields = parseScheduledFields(body);
+
+    if (!userId || !parentId) {
+      response.status(400).json({ error: "userId and parentId are required" });
+      return;
+    }
+    if (!text) {
+      response.status(400).json({ error: "text is required and must be 500 characters or fewer" });
+      return;
+    }
+    if (typeof scheduledFields === "string") {
+      response.status(400).json({ error: scheduledFields });
+      return;
+    }
+
+    try {
+      if (!(await isApprovedCaregiverFor(userId, parentId))) {
+        response.status(403).json({ error: "You are not linked to this parent" });
+        return;
+      }
+
+      const created = await createCaregiverAction({
+        parentId,
+        createdByUserId: userId,
+        text,
+        conversationId: null,
+        appointmentId: null,
+        scheduledDate: scheduledFields.scheduledDate,
+        scheduledTime: scheduledFields.scheduledTime,
+        scheduledEndTime: scheduledFields.scheduledEndTime,
+        source: "caregiver",
+      });
+      response.status(201).json({ status: "created", action: created });
+    } catch (error: unknown) {
+      console.error("Failed to create caregiver task", error);
+      response.status(500).json({ error: "Unable to create task" });
     }
   });
 
