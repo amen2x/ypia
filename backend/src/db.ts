@@ -39,7 +39,9 @@ function buildPoolConfig(): PoolConfig {
 
 export function getPool(): Pool {
   if (!pool) {
-    pool = new Pool(buildPoolConfig());
+    // Keep a connection warm for 2 minutes: the voice agent gives its tools only ~1 second, and opening a
+    // fresh connection to the hosted database can take several hundred milliseconds.
+    pool = new Pool({ ...buildPoolConfig(), idleTimeoutMillis: 120_000 });
 
     // Without this handler, an error on an idle client crashes the process
     // (or gets swallowed entirely depending on Node version) with no log line.

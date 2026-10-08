@@ -4,6 +4,7 @@ const FALLBACK_TIMEZONE = "America/Chicago";
 
 export interface CaregiverAction {
   id: string;
+  parentId: string;
   text: string;
   status: string;
   source: string;
@@ -14,6 +15,8 @@ export interface CaregiverAction {
   date: string | null;
   time: string | null;
   endTime: string | null;
+  // Title of the linked appointment, when the action is tied to one.
+  appointmentTitle: string | null;
 }
 
 export interface CreateCaregiverActionInput {
@@ -25,6 +28,8 @@ export interface CreateCaregiverActionInput {
   scheduledDate: string | null;
   scheduledTime: string | null;
   scheduledEndTime: string | null;
+  // Defaults to the table default ('voice') when omitted, so existing callers are unchanged.
+  source?: string;
 }
 
 // The agent may supply an appointmentId, but it is never trusted merely because
@@ -45,32 +50,90 @@ async function resolveOwnedAppointmentId(
   return result.rows[0]?.id ?? null;
 }
 
-export async function createCaregiverAction(
-  input: CreateCaregiverActionInput
-): Promise<{ id: string; text: string; status: string }> {
-  const pool = getPool();
-  const verifiedAppointmentId = await resolveOwnedAppointmentId(input.parentId, input.appointmentId);
+export interface CreatedCaregiverAction {
+  id: string;
+  text: string;
+  status: string;
+  // true when this was a repeat of a request already saved in the same conversation (nothing new was stored)
+  duplicate: boolean;
+  appointmentLinked: boolean;
+  // true when the action has a structured date (its own, or its linked appointment's)
+  scheduled: boolean;
+}
 
-  const result = await pool.query<{ id: string; action_text: string; status: string }>(
-    `INSERT INTO caregiver_actions
-       (parent_id, created_by_user_id, action_text, elevenlabs_conversation_id, appointment_id,
-        scheduled_date, scheduled_time, scheduled_end_time)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-     RETURNING id, action_text, status`,
-    [
-      input.parentId,
-      input.createdByUserId,
-      input.text,
-      input.conversationId,
-      verifiedAppointmentId,
-      input.scheduledDate,
-      input.scheduledTime,
-      input.scheduledEndTime,
-    ]
+// The same words, from the same conversation, for the same parent, within this window are one request.
+// The voice agent retries tool calls (its tool timeout is short), and a retry must not become a second task.
+const DUPLICATE_WINDOW_MINUTES = 10;
+
+interface ActionRow {
+  id: string;
+  action_text: string;
+  status: string;
+  appointment_id: string | null;
+  scheduled_date: unknown;
+}
+
+const toCreated = (row: ActionRow, duplicate: boolean): CreatedCaregiverAction => ({
+  id: row.id,
+  text: row.action_text,
+  status: row.status,
+  duplicate,
+  appointmentLinked: row.appointment_id !== null && row.appointment_id !== undefined,
+  scheduled: Boolean(row.appointment_id) || Boolean(row.scheduled_date),
+});
+
+async function findRecentDuplicate(input: CreateCaregiverActionInput): Promise<ActionRow | null> {
+  if (!input.conversationId) return null; // only conversation-scoped requests can be recognised as repeats
+  const result = await getPool().query<ActionRow>(
+    `SELECT id, action_text, status, appointment_id, scheduled_date
+     FROM caregiver_actions
+     WHERE parent_id = $1
+       AND elevenlabs_conversation_id = $2
+       AND status = 'open'
+       AND lower(btrim(action_text)) = lower(btrim($3))
+       AND created_at > now() - interval '${DUPLICATE_WINDOW_MINUTES} minutes'
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [input.parentId, input.conversationId, input.text]
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function createCaregiverAction(input: CreateCaregiverActionInput): Promise<CreatedCaregiverAction> {
+  const pool = getPool();
+  const [verifiedAppointmentId, existing] = await Promise.all([
+    resolveOwnedAppointmentId(input.parentId, input.appointmentId),
+    findRecentDuplicate(input),
+  ]);
+  if (existing) return toCreated(existing, true);
+
+  const columns = [
+    "parent_id", "created_by_user_id", "action_text", "elevenlabs_conversation_id", "appointment_id",
+    "scheduled_date", "scheduled_time", "scheduled_end_time",
+  ];
+  const values: unknown[] = [
+    input.parentId,
+    input.createdByUserId,
+    input.text,
+    input.conversationId,
+    verifiedAppointmentId,
+    input.scheduledDate,
+    input.scheduledTime,
+    input.scheduledEndTime,
+  ];
+  if (input.source) {
+    columns.push("source");
+    values.push(input.source);
+  }
+
+  const result = await pool.query<ActionRow>(
+    `INSERT INTO caregiver_actions (${columns.join(", ")})
+     VALUES (${values.map((_, index) => `$${index + 1}`).join(", ")})
+     RETURNING id, action_text, status, appointment_id, scheduled_date`,
+    values
   );
 
-  const row = result.rows[0];
-  return { id: row.id, text: row.action_text, status: row.status };
+  return toCreated(result.rows[0], false);
 }
 
 export async function listCaregiverActions(parentIds: string[]): Promise<CaregiverAction[]> {
@@ -81,6 +144,7 @@ export async function listCaregiverActions(parentIds: string[]): Promise<Caregiv
   const pool = getPool();
   const result = await pool.query<{
     id: string;
+    parent_id: string;
     action_text: string;
     status: string;
     source: string;
@@ -90,13 +154,14 @@ export async function listCaregiverActions(parentIds: string[]): Promise<Caregiv
     elevenlabs_conversation_id: string | null;
     appt_starts_at: Date | null;
     appt_timezone: string | null;
+    appt_title: string | null;
     scheduled_date: Date | null;
     scheduled_time: string | null;
     scheduled_end_time: string | null;
   }>(
-    `SELECT ca.id, ca.action_text, ca.status, ca.source, ca.created_at, ca.completed_at,
+    `SELECT ca.id, ca.parent_id, ca.action_text, ca.status, ca.source, ca.created_at, ca.completed_at,
             ca.elevenlabs_conversation_id, p.full_name AS parent_name,
-            a.starts_at AS appt_starts_at, a.timezone AS appt_timezone,
+            a.starts_at AS appt_starts_at, a.timezone AS appt_timezone, a.title AS appt_title,
             ca.scheduled_date, ca.scheduled_time, ca.scheduled_end_time
      FROM caregiver_actions ca
      JOIN parents p ON p.id = ca.parent_id
@@ -121,6 +186,7 @@ export async function listCaregiverActions(parentIds: string[]): Promise<Caregiv
       const hasExplicitTime = localTime !== "12:00 AM";
       return {
         id: row.id,
+        parentId: row.parent_id,
         text: row.action_text,
         status: row.status,
         source: row.source,
@@ -133,6 +199,7 @@ export async function listCaregiverActions(parentIds: string[]): Promise<Caregiv
         date: startsAt.toLocaleDateString("en-CA", { timeZone }),
         time: hasExplicitTime ? localTime : null,
         endTime: null,
+        appointmentTitle: row.appt_title ?? "Appointment",
       };
     }
 
@@ -146,6 +213,7 @@ export async function listCaregiverActions(parentIds: string[]): Promise<Caregiv
 
     return {
       id: row.id,
+      parentId: row.parent_id,
       text: row.action_text,
       status: row.status,
       source: row.source,
@@ -156,6 +224,7 @@ export async function listCaregiverActions(parentIds: string[]): Promise<Caregiv
       date: scheduledDate,
       time: scheduledDate && row.scheduled_time ? row.scheduled_time.slice(0, 5) : null,
       endTime: scheduledDate && row.scheduled_time && row.scheduled_end_time ? row.scheduled_end_time.slice(0, 5) : null,
+      appointmentTitle: null,
     };
   });
 }
@@ -242,4 +311,49 @@ export async function getActionConversation(
   }
 
   return { status: "ok", summary: row.summary, transcript: row.transcript };
+}
+
+export interface ScheduleActionInput {
+  actionId: string;
+  userId: string;
+  // All null clears the schedule. Otherwise the date is required (the caller validates the combination).
+  scheduledDate: string | null;
+  scheduledTime: string | null;
+  scheduledEndTime: string | null;
+}
+
+export type ScheduleActionResult =
+  | { status: "scheduled"; id: string; date: string | null; time: string | null; endTime: string | null }
+  | { status: "not_found" }
+  | { status: "linked_to_appointment" };
+
+// Persists a caregiver's own scheduling of an action. Re-running it with the same values changes
+// nothing (it updates the same row), and a task linked to an appointment is rejected because that
+// appointment's stored time is already authoritative.
+export async function scheduleAction(input: ScheduleActionInput): Promise<ScheduleActionResult> {
+  const pool = getPool();
+
+  const found = await pool.query<{ id: string; appointment_id: string | null }>(
+    `SELECT ca.id, ca.appointment_id
+     FROM caregiver_actions ca
+     JOIN parent_relationships pr
+       ON pr.parent_id = ca.parent_id AND pr.user_id = $1 AND pr.status = 'approved'
+     WHERE ca.id = $2`,
+    [input.userId, input.actionId]
+  );
+  if (found.rows.length === 0) return { status: "not_found" };
+  if (found.rows[0].appointment_id) return { status: "linked_to_appointment" };
+
+  const updated = await pool.query<{ id: string; scheduled_date: string | null; scheduled_time: string | null; scheduled_end_time: string | null }>(
+    `UPDATE caregiver_actions
+     SET scheduled_date = $1::date, scheduled_time = $2::time, scheduled_end_time = $3::time
+     WHERE id = $4
+     RETURNING id,
+               to_char(scheduled_date, 'YYYY-MM-DD') AS scheduled_date,
+               to_char(scheduled_time, 'HH24:MI') AS scheduled_time,
+               to_char(scheduled_end_time, 'HH24:MI') AS scheduled_end_time`,
+    [input.scheduledDate, input.scheduledTime, input.scheduledEndTime, input.actionId]
+  );
+  const row = updated.rows[0];
+  return { status: "scheduled", id: row.id, date: row.scheduled_date, time: row.scheduled_time, endTime: row.scheduled_end_time };
 }

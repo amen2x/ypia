@@ -1,19 +1,23 @@
-/* Shared look for the game pages. Same green as the parent home page.
+/* Shared look for the game pages. Matches the parent app (cream + forest green).
    Made for older eyes and hands: big text, big buttons, strong contrast. */
 
+@font-face { font-family: "Atkinson Hyperlegible"; font-weight: 400; font-display: swap; src: url("/static/fonts/atkinson-hyperlegible-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Atkinson Hyperlegible"; font-weight: 700; font-display: swap; src: url("/static/fonts/atkinson-hyperlegible-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Manrope"; font-weight: 200 800; font-display: swap; src: url("/static/fonts/manrope-latin-wght-normal.woff2") format("woff2"); }
+
 :root {
-  --green: #2e7d32;
-  --green-dark: #1f5723;
+  --green: #25692a;
+  --green-dark: #173f23;
   --green-soft: #e3f1e4;
-  --ink: #1b2a1e;
-  --muted: #4d5f51;
-  --card: #ffffff;
+  --ink: #1d2b20;
+  --muted: #52604f;
+  --card: #fffdf8;
   --line: #c9d8cb;
   --right: #1f7a2e;
   --right-soft: #d8f0dc;
   --wrong: #a3352b;
   --wrong-soft: #f8e1de;
-  --focus: #ffcc33;
+  --focus: #1a5fb4;
 }
 
 * { box-sizing: border-box; }
@@ -21,9 +25,9 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--green);
+  background: #f7f3e8;
   color: var(--ink);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 22px;
   line-height: 1.45;
 }
@@ -39,12 +43,12 @@ body {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  color: #fff;
+  color: var(--green-dark);
   margin-bottom: 16px;
 }
-.topbar .brand { font-weight: 800; letter-spacing: 0.05em; }
+.topbar .brand { font-family: "Manrope", system-ui, sans-serif; font-weight: 800; font-size: 1.45rem; letter-spacing: 0.02em; }
 .topbar a, .link-button {
-  color: #fff;
+  color: var(--green-dark);
   font-size: 20px;
   background: none;
   border: none;
@@ -58,11 +62,12 @@ body {
   background: var(--card);
   border-radius: 20px;
   padding: 28px 24px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(23, 63, 35, 0.14);
+  box-shadow: 0 2px 4px rgba(23, 63, 35, 0.05), 0 12px 32px rgba(23, 63, 35, 0.09);
 }
 .center { text-align: center; }
 
-h1, h2 { margin: 0 0 12px; line-height: 1.2; text-wrap: balance; }
+h1, h2 { margin: 0 0 12px; line-height: 1.2; text-wrap: balance; font-family: "Manrope", system-ui, sans-serif; font-weight: 700; letter-spacing: -0.02em; color: var(--green-dark); }
 h1 { font-size: 36px; }
 h2 { font-size: 30px; }
 .big { font-size: 26px; }
@@ -81,7 +86,7 @@ h2 { font-size: 30px; }
   border: 3px solid var(--green);
   background: #fff;
   color: var(--green-dark);
-  font: 700 24px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 700 24px/1.2 "Atkinson Hyperlegible", system-ui, sans-serif;
   text-decoration: none;
   cursor: pointer;
 }
@@ -166,8 +171,9 @@ button:focus-visible, a:focus-visible { outline: 4px solid var(--focus); outline
   text-decoration: none;
 }
 .game-link:hover { border-color: var(--green); }
-.game-link .icon { font-size: 44px; line-height: 1; }
-.game-link .name { font-size: 28px; font-weight: 800; display: block; }
+.game-link .icon { display: grid; place-items: center; width: 60px; height: 60px; flex: none; border-radius: 18px; background: var(--green-soft); color: var(--green); }
+.game-link .icon svg { width: 30px; height: 30px; }
+.game-link .name { font-family: "Manrope", system-ui, sans-serif; font-size: 28px; font-weight: 700; display: block; }
 .game-link .about { font-size: 20px; color: var(--muted); display: block; }
 .game-link.soon { opacity: 0.6; pointer-events: none; }
 

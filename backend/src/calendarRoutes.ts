@@ -1,13 +1,18 @@
+import { createHash } from "node:crypto";
 import { Router } from "express";
 import { z } from "zod";
+import {
+  CalendarInputError,
+  DEFAULT_TIMEZONE,
+  contentDisposition,
+  googleCalendarUrl,
+  icsCalendar,
+  isCalendarDate,
+  isValidTimezone,
+  type CalendarEvent,
+} from "./calendarExport.js";
 
-const SCHEDULE_TIMEZONE = "America/Chicago";
-
-export function isCalendarDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000")) return false;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
+export { isCalendarDate };
 
 const timeSchema = z.string().trim().regex(
   /^(?:[01]\d|2[0-3]):[0-5]\d$|^(?:0?[1-9]|1[0-2]):[0-5]\d\s*(?:AM|PM)$/i,
@@ -18,11 +23,17 @@ const timeSchema = z.string().trim().regex(
   return `${String(hour).padStart(2, "0")}:${match[2]}`;
 });
 
+// Generic "format this explicit date/time" input. The caregiver workspace exports stored records
+// by id instead (see /api/caregiver/calendar/:kind/:id in app.ts); this stays as the plain formatter.
 const calendarExportSchema = z.object({
   title: z.string().trim().min(1).max(500),
   date: z.string().refine(isCalendarDate, "A valid explicit calendar date is required"),
   time: timeSchema.optional(),
   endTime: timeSchema.optional(),
+  location: z.string().trim().max(500).optional(),
+  details: z.string().trim().max(4000).optional(),
+  // IANA timezone for the wall-clock time. Defaults to the schedule's historical zone.
+  timezone: z.string().trim().refine(isValidTimezone, "Unknown timezone").optional(),
 }).strict().superRefine((event, context) => {
   if (event.endTime && (!event.time || event.endTime < event.time)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["endTime"], message: "End time requires a start time and cannot be earlier" });
@@ -32,42 +43,60 @@ const calendarExportSchema = z.object({
   }
 });
 
-export function buildCalendarUrl(input: unknown): string {
+function toEvent(input: unknown): CalendarEvent {
   const event = calendarExportSchema.parse(input);
-  const day = event.date.replaceAll("-", "");
-  let dates: string;
-  if (event.time) {
-    // Keep explicit wall-clock values in the schedule's existing timezone.
-    const start = `${day}T${event.time.replace(":", "")}00`;
-    let end: string;
-    if (event.endTime) {
-      end = `${day}T${event.endTime.replace(":", "")}00`;
-    } else {
-      // A 30-minute export-only placeholder, never persisted as care data.
-      const exportEnd = new Date(`${event.date}T${event.time}:00.000Z`);
-      exportEnd.setUTCMinutes(exportEnd.getUTCMinutes() + 30);
-      end = exportEnd.toISOString().slice(0, 19).replace(/[-:]/g, "");
-    }
-    dates = `${start}/${end}`;
-  } else {
-    // Google all-day ranges have an exclusive end date, with no clock time.
-    const end = new Date(`${event.date}T00:00:00.000Z`);
-    end.setUTCDate(end.getUTCDate() + 1);
-    dates = `${day}/${end.toISOString().slice(0, 10).replaceAll("-", "")}`;
-  }
-  const url = new URL("https://calendar.google.com/calendar/render");
-  url.search = new URLSearchParams({ action: "TEMPLATE", text: event.title, dates, ctz: SCHEDULE_TIMEZONE }).toString();
+  const timezone = event.timezone ?? DEFAULT_TIMEZONE;
+  const uid = `generic-${createHash("sha1").update([event.title, event.date, event.time ?? "", event.endTime ?? "", timezone].join("\u0000")).digest("hex").slice(0, 24)}@ypia`;
+  return {
+    uid,
+    title: event.title,
+    description: event.details,
+    location: event.location,
+    when: event.time
+      ? { kind: "zoned", date: event.date, time: event.time, endTime: event.endTime, timezone }
+      : { kind: "allDay", date: event.date },
+  };
+}
+
+export function buildCalendarUrl(input: unknown): string {
+  const event = toEvent(input);
+  const url = new URL(googleCalendarUrl(event));
+  // The historical route always sent a timezone, even for all-day items.
+  if (!url.searchParams.has("ctz")) url.searchParams.set("ctz", (event.when.kind === "zoned" ? event.when.timezone : DEFAULT_TIMEZONE));
   return url.toString();
 }
 
+export function buildIcs(input: unknown, now: Date = new Date()): { body: string; title: string } {
+  const event = toEvent(input);
+  return { body: icsCalendar([event], now), title: event.title };
+}
+
 export const calendarRoutes = Router();
+
+const INVALID_MESSAGE = "Choose a valid event date and, if supplied, a valid time before adding it to your calendar.";
 
 calendarRoutes.get("/template", (request, response, next) => {
   try {
     response.redirect(buildCalendarUrl(request.query));
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      response.status(400).type("text/plain").send("Choose a valid event date and, if supplied, a valid time before adding it to your calendar.");
+    if (error instanceof z.ZodError || error instanceof CalendarInputError) {
+      response.status(400).type("text/plain").send(INVALID_MESSAGE);
+      return;
+    }
+    next(error);
+  }
+});
+
+calendarRoutes.get("/ics", (request, response, next) => {
+  try {
+    const { body, title } = buildIcs(request.query);
+    response.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    response.setHeader("Content-Disposition", contentDisposition(title));
+    response.setHeader("Cache-Control", "no-store");
+    response.send(body);
+  } catch (error) {
+    if (error instanceof z.ZodError || error instanceof CalendarInputError) {
+      response.status(400).type("text/plain").send(INVALID_MESSAGE);
       return;
     }
     next(error);

@@ -26,9 +26,19 @@ import {
   listCaregiverActions,
   updateActionStatus,
   getActionConversation,
+  scheduleAction,
 } from "./services/caregiverActions.js";
+import { CALENDAR_ITEM_KINDS, loadCalendarItem, type CalendarItemKind } from "./services/calendarItems.js";
+import { CalendarInputError, contentDisposition, googleCalendarUrl, icsCalendar } from "./calendarExport.js";
 import { registerVoiceConversation, syncVoiceConversation } from "./services/voiceConversations.js";
 import { listSharedDocuments } from "./services/caregiverDocuments.js";
+import {
+  isApprovedCaregiverFor,
+  listApprovedParents,
+  listChangeSourceDocuments,
+  listConfirmedMedications,
+  listUpcomingAppointments,
+} from "./services/caregiverOverview.js";
 import { checkInParent } from "./services/checkIns.js";
 import { DatabaseConfigurationError, getPool } from "./db.js";
 import { scoreUnreviewedSchedule } from "./services/schedulePoints.js";
@@ -213,12 +223,22 @@ export function createApp() {
     response.json({ status: "ok" });
   });
 
+  // Returns a short-lived signed URL for the browser's ElevenLabs session. Failures carry a stable
+  // `code` so the app can tell the parent (and a developer) what is wrong. Neither the responses nor
+  // the logs ever contain the API key, the agent id or the signed URL: only variable NAMES, status
+  // codes and error codes.
   app.get("/api/elevenlabs/signed-url", async (_request, response) => {
     const apiKey = process.env.ELEVENLABS_API_KEY;
     const agentId = process.env.ELEVENLABS_AGENT_ID;
 
+    function fail(status: number, code: string, error: string, detail?: string): void {
+      console.warn(`[voice] signed-url failed: ${code}${detail ? ` (${detail})` : ""}`);
+      response.status(status).json({ error, code });
+    }
+
+    const missing = [!apiKey && "ELEVENLABS_API_KEY", !agentId && "ELEVENLABS_AGENT_ID"].filter(Boolean);
     if (!apiKey || !agentId) {
-      response.status(500).json({ error: "ElevenLabs is not configured" });
+      fail(500, "not_configured", "ElevenLabs is not configured", `missing: ${missing.join(", ")}`);
       return;
     }
 
@@ -229,19 +249,30 @@ export function createApp() {
       );
 
       if (!elevenLabsResponse.ok) {
-        response.status(502).json({ error: "Could not start a voice session" });
+        const upstream = elevenLabsResponse.status;
+        if (upstream === 401 || upstream === 403) {
+          fail(502, "elevenlabs_auth", "The voice service rejected this server's credentials or agent settings", `upstream ${upstream}`);
+        } else if (upstream === 400 || upstream === 404 || upstream === 422) {
+          fail(502, "elevenlabs_agent", "The voice service could not find or accept the configured agent", `upstream ${upstream}`);
+        } else if (upstream === 429) {
+          fail(502, "elevenlabs_rate_limited", "The voice service is busy right now", `upstream ${upstream}`);
+        } else {
+          fail(502, "elevenlabs_unavailable", "The voice service had a problem", `upstream ${upstream}`);
+        }
         return;
       }
 
       const body = (await elevenLabsResponse.json()) as { signed_url?: string };
       if (!body.signed_url) {
-        response.status(502).json({ error: "Could not start a voice session" });
+        fail(502, "no_signed_url", "The voice service did not return a session link");
         return;
       }
 
+      // A voice session is starting: open a database connection now so the first tool call is fast.
+      void getPool().query("SELECT 1").catch(() => undefined);
       response.json({ signedUrl: body.signed_url });
     } catch {
-      response.status(502).json({ error: "Could not start a voice session" });
+      fail(502, "elevenlabs_unreachable", "Could not reach the voice service");
     }
   });
 
@@ -525,7 +556,9 @@ export function createApp() {
         ...scheduledFields,
       });
 
-      response.status(201).json({ status: "created", action });
+      // Safe, value-free trace for local debugging: which parent-side request reached the database.
+      console.log(`[voice] caregiver action ${action.duplicate ? "repeat ignored" : "created"}: id=${action.id.slice(0, 8)} linked=${action.appointmentLinked} scheduled=${action.scheduled}`);
+      response.status(action.duplicate ? 200 : 201).json({ status: action.duplicate ? "duplicate" : "created", action });
     } catch (error: unknown) {
       console.error("Failed to create caregiver action", error);
       response.status(500).json({ error: "Unable to create caregiver action" });
@@ -635,6 +668,208 @@ export function createApp() {
     } catch (error: unknown) {
       console.error("Failed to update caregiver action", error);
       response.status(500).json({ error: "Unable to update caregiver action" });
+    }
+  });
+
+  // ---- Caregiver workspace: read-only views of confirmed care information ----
+  // Every route requires userId + parentId and an *approved* caregiver relationship.
+  async function resolveApprovedParent(request: Request, response: Response): Promise<string | null> {
+    const userId = parseUserId(request.query.userId);
+    const parentId = parseUserId(request.query.parentId);
+    if (!userId || !parentId) {
+      response.status(400).json({ error: "userId and parentId are required" });
+      return null;
+    }
+    if (!(await isApprovedCaregiverFor(userId, parentId))) {
+      response.status(403).json({ error: "You are not linked to this parent" });
+      return null;
+    }
+    return parentId;
+  }
+
+  app.get("/api/caregiver/parents", async (request, response) => {
+    const userId = parseUserId(request.query.userId);
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+
+    try {
+      response.json({ parents: await listApprovedParents(userId) });
+    } catch (error: unknown) {
+      console.error("Failed to load linked parents", error);
+      response.status(500).json({ error: "Unable to load linked parents" });
+    }
+  });
+
+  app.get("/api/caregiver/medications", async (request, response) => {
+    try {
+      const parentId = await resolveApprovedParent(request, response);
+      if (!parentId) return;
+      response.json({ medications: await listConfirmedMedications(parentId) });
+    } catch (error: unknown) {
+      console.error("Failed to load caregiver medications", error);
+      response.status(500).json({ error: "Unable to load medications" });
+    }
+  });
+
+  app.get("/api/caregiver/appointments", async (request, response) => {
+    try {
+      const parentId = await resolveApprovedParent(request, response);
+      if (!parentId) return;
+      response.json({ appointments: await listUpcomingAppointments(parentId) });
+    } catch (error: unknown) {
+      console.error("Failed to load caregiver appointments", error);
+      response.status(500).json({ error: "Unable to load appointments" });
+    }
+  });
+
+  app.get("/api/caregiver/changes", async (request, response) => {
+    try {
+      const parentId = await resolveApprovedParent(request, response);
+      if (!parentId) return;
+      const [latest, sources] = await Promise.all([getLatestChanges(parentId), listChangeSourceDocuments(parentId)]);
+      response.json({ ...latest, sources });
+    } catch (error: unknown) {
+      console.error("Failed to load caregiver changes", error);
+      response.status(500).json({ error: "Unable to load care changes" });
+    }
+  });
+
+  // A caregiver's own task. Only explicit scheduled* fields are stored; dates are
+  // never inferred from the text (same rule as parent-created requests).
+  app.post("/api/caregiver/actions", async (request, response) => {
+    const body = request.body as Record<string, unknown> | undefined;
+    const userId = parseUserId(body?.userId);
+    const parentId = parseUserId(body?.parentId);
+    const text = parseActionText(body?.text);
+    const scheduledFields = parseScheduledFields(body);
+
+    if (!userId || !parentId) {
+      response.status(400).json({ error: "userId and parentId are required" });
+      return;
+    }
+    if (!text) {
+      response.status(400).json({ error: "text is required and must be 500 characters or fewer" });
+      return;
+    }
+    if (typeof scheduledFields === "string") {
+      response.status(400).json({ error: scheduledFields });
+      return;
+    }
+
+    try {
+      if (!(await isApprovedCaregiverFor(userId, parentId))) {
+        response.status(403).json({ error: "You are not linked to this parent" });
+        return;
+      }
+
+      const created = await createCaregiverAction({
+        parentId,
+        createdByUserId: userId,
+        text,
+        conversationId: null,
+        appointmentId: null,
+        scheduledDate: scheduledFields.scheduledDate,
+        scheduledTime: scheduledFields.scheduledTime,
+        scheduledEndTime: scheduledFields.scheduledEndTime,
+        source: "caregiver",
+      });
+      response.status(201).json({ status: "created", action: created });
+    } catch (error: unknown) {
+      console.error("Failed to create caregiver task", error);
+      response.status(500).json({ error: "Unable to create task" });
+    }
+  });
+
+  // ---- Caregiver calendar export: ONE stored record -> Google Calendar link or .ics file ----
+  // The record's structured columns are the only source (never free text), and exporting is a
+  // pure read: it creates and changes nothing in Y.P.I.A., so repeating it cannot duplicate records.
+  app.get("/api/caregiver/calendar/:kind/:id", async (request, response) => {
+    const userId = parseUserId(request.query.userId);
+    const kind = request.params.kind as CalendarItemKind;
+    const format = request.query.format === undefined || request.query.format === "google" ? "google" : request.query.format === "ics" ? "ics" : null;
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+    if (!CALENDAR_ITEM_KINDS.includes(kind) || !format) {
+      response.status(400).json({ error: "kind must be appointment, action or schedule, and format google or ics" });
+      return;
+    }
+
+    try {
+      const item = await loadCalendarItem(kind, request.params.id);
+      if (item.status === "not_found") {
+        response.status(404).json({ error: "Item not found" });
+        return;
+      }
+      const approved = await getApprovedParentIdsForCaregiver(userId);
+      if (!approved.includes(item.parentId)) {
+        response.status(403).json({ error: "You are not linked to this parent" });
+        return;
+      }
+      if (item.status === "not_scheduled") {
+        response.status(422).json({ error: "This item has no date yet. Schedule it first.", code: "not_scheduled" });
+        return;
+      }
+
+      if (format === "google") {
+        response.redirect(googleCalendarUrl(item.event));
+        return;
+      }
+      response.setHeader("Content-Type", "text/calendar; charset=utf-8");
+      response.setHeader("Content-Disposition", contentDisposition(item.event.title));
+      response.setHeader("Cache-Control", "no-store");
+      response.send(icsCalendar([item.event]));
+    } catch (error: unknown) {
+      if (error instanceof CalendarInputError) {
+        response.status(422).json({ error: error.message, code: "invalid_schedule" });
+        return;
+      }
+      console.error("Failed to export calendar item", error);
+      response.status(500).json({ error: "Unable to export this item" });
+    }
+  });
+
+  // Gives an unscheduled task an explicit, persisted date (and optional start / end time).
+  app.patch("/api/caregiver/actions/:id/schedule", async (request, response) => {
+    const body = request.body as Record<string, unknown> | undefined;
+    const userId = parseUserId(body?.userId);
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+    if (!body || !("scheduledDate" in body)) {
+      response.status(400).json({ error: "scheduledDate is required (send null to clear the schedule)" });
+      return;
+    }
+    const fields = parseScheduledFields(body);
+    if (typeof fields === "string") {
+      response.status(400).json({ error: fields });
+      return;
+    }
+
+    try {
+      const result = await scheduleAction({
+        actionId: request.params.id,
+        userId,
+        scheduledDate: fields.scheduledDate,
+        scheduledTime: fields.scheduledTime,
+        scheduledEndTime: fields.scheduledEndTime,
+      });
+      if (result.status === "not_found") {
+        response.status(404).json({ error: "Action not found" });
+        return;
+      }
+      if (result.status === "linked_to_appointment") {
+        response.status(409).json({ error: "This task is linked to an appointment, so the appointment's time is used." });
+        return;
+      }
+      response.json({ status: "scheduled", action: { id: result.id, date: result.date, time: result.time, endTime: result.endTime } });
+    } catch (error: unknown) {
+      console.error("Failed to schedule caregiver action", error);
+      response.status(500).json({ error: "Unable to schedule this task" });
     }
   });
 
