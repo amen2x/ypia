@@ -74,9 +74,31 @@ const extractedDocumentJsonSchema = {
   required: ["documentType", "medications", "appointments", "followUps", "instructions"]
 };
 
+// Why an extraction failed, without any provider detail. The upload route maps these to
+// parent-safe messages; the sanitized detail is only ever logged server-side.
+export type GeminiFailureKind = "not_configured" | "unavailable" | "bad_output" | "unreadable_input";
+
+export class GeminiExtractionError extends Error {
+  readonly kind: GeminiFailureKind;
+
+  constructor(kind: GeminiFailureKind, message: string) {
+    super(message);
+    this.kind = kind;
+  }
+}
+
+// 401/403 (bad key) and 404 (unknown model) are our configuration, not the parent's problem.
+export function classifyFailure(error: unknown): GeminiFailureKind {
+  if (error instanceof GeminiExtractionError) return error.kind;
+  const status = getHttpStatus(error);
+  if (status === 401 || status === 403 || status === 404) return "not_configured";
+  if (status === 400 || status === 413 || status === 415 || status === 422) return "unreadable_input";
+  return "unavailable";
+}
+
 function getGeminiApiKey(): string {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
+  if (!apiKey) throw new GeminiExtractionError("not_configured", "GEMINI_API_KEY is not configured");
   return apiKey;
 }
 
@@ -114,13 +136,13 @@ function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-function parseGeminiResponse(text: string | undefined): ExtractedDocument {
-  if (!text) throw new Error("Gemini returned no extraction result");
+export function parseGeminiResponse(text: string | undefined): ExtractedDocument {
+  if (!text) throw new GeminiExtractionError("bad_output", "Gemini returned no extraction result");
 
   try {
     return extractedDocumentSchema.parse(JSON.parse(text) as unknown);
   } catch {
-    throw new Error("Gemini returned an invalid document extraction result");
+    throw new GeminiExtractionError("bad_output", "Gemini returned an invalid document extraction result");
   }
 }
 
@@ -153,8 +175,7 @@ export async function extractWithGemini(filePath: string, mimeType: string): Pro
     } catch (error: unknown) {
       if (!isTransientGeminiError(error) || attempt === maxAttempts) {
         logGeminiFailure(activeModel, error, apiKey);
-        if (error instanceof Error && error.message.startsWith("Gemini returned")) throw error;
-        throw new Error(`Gemini extraction failed: ${sanitizeGeminiError(error, apiKey)}`);
+        throw new GeminiExtractionError(classifyFailure(error), `Gemini extraction failed: ${sanitizeGeminiError(error, apiKey)}`);
       }
 
       const nextModel = models[modelIndex + 1];
@@ -164,5 +185,5 @@ export async function extractWithGemini(filePath: string, mimeType: string): Pro
     }
   }
 
-  throw new Error("Gemini extraction failed");
+  throw new GeminiExtractionError("unavailable", "Gemini extraction failed");
 }

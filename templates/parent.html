@@ -157,7 +157,7 @@
           <div id="uploadToast" class="toast" role="status" aria-live="polite" hidden></div>
         </section>
         <section class="card" aria-labelledby="historyTitle">
-          <h2 class="card-title" id="historyTitle">Added on this device</h2>
+          <h2 class="card-title" id="historyTitle">Your documents</h2>
           <div id="docHistory"></div>
         </section>
       </div>
@@ -238,13 +238,14 @@
   <!-- Document review -->
   <dialog id="reviewDialog" class="wide" aria-labelledby="reviewTitle">
     <div class="dialog-body">
-      <h2 class="dialog-title" id="reviewTitle">Does this look correct?</h2>
+      <h2 class="dialog-title" id="reviewTitle">Please check this</h2>
       <p id="reviewSubtitle" class="review-subtitle"></p>
+      <div id="reviewNotes" class="review-notes" role="note" aria-label="Things to check" hidden></div>
       <p id="reviewEmptyNote" class="review-empty-note" hidden>We couldn't confidently identify any care information in this document.</p>
       <div id="reviewSections" class="review-sections"></div>
       <p id="reviewError" class="review-error" role="alert" hidden></p>
       <div class="dialog-actions">
-        <button id="reviewCancelButton" type="button" class="btn btn-secondary">Cancel</button>
+        <button id="reviewCancelButton" type="button" class="btn btn-secondary">Not now</button>
         <button id="reviewConfirmButton" type="button" class="btn btn-primary">Confirm &amp; add</button>
       </div>
     </div>

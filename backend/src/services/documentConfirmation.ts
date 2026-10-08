@@ -6,6 +6,7 @@ import { extractedDocumentSchema } from "../schemas.js";
 import {
   actionableMedicationChangeTypes,
   appointmentsMatch,
+  findMatchingMedication,
   medicationsMatch,
   reconcileCareState,
 } from "./reconcileCareState.js";
@@ -16,6 +17,7 @@ import type {
   DocumentType,
   ExtractedDocument,
   MedicationChange,
+  NormalizedDocument,
   NormalizedMedication,
 } from "../types.js";
 
@@ -135,6 +137,9 @@ export interface ConfirmDocumentResult {
   documentName: string;
   hasChanges: boolean;
   summary: ChangeSummary[];
+  // Things in the document that were deliberately NOT applied to the care record because the
+  // document alone doesn't settle them (conflicting or unclear details).
+  notChanged: ChangeSummary[];
 }
 
 // Appointments require an explicit date and time. Unparseable or incomplete
@@ -306,6 +311,50 @@ async function applyMedicationChange(
   );
 }
 
+export interface ReviewNote {
+  kind: "dose_differs" | "not_in_record" | "no_exact_time";
+  message: string;
+}
+
+function sameText(a: string | null, b: string | null): boolean {
+  return (a ?? "").trim().replace(/\s+/g, " ").toLowerCase() === (b ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+// Plain-language heads-ups shown beside the review, computed against what the parent has
+// already confirmed. They only explain; nothing here changes any record.
+export async function buildReviewNotes(parentId: string, document: NormalizedDocument): Promise<ReviewNote[]> {
+  const { careState } = await loadPreviousCareState(getPool() as unknown as QueryableClient, parentId);
+  const notes: ReviewNote[] = [];
+
+  for (const incoming of document.medications) {
+    const current = findMatchingMedication(careState.medications, incoming);
+    if (current) {
+      if (incoming.dose && !sameText(current.dose, incoming.dose)) {
+        notes.push({
+          kind: "dose_differs",
+          message: `${incoming.name}: your care record lists ${current.dose ?? "no dose"}, and this document says ${incoming.dose}. Your record only changes if the status below is "Dose or frequency changed".`,
+        });
+      }
+    } else if (incoming.status !== "started") {
+      notes.push({
+        kind: "not_in_record",
+        message: `${incoming.name} isn't in your care record yet. A medication in a document is only added when its status is "Newly started".`,
+      });
+    }
+  }
+
+  for (const appointment of document.appointments) {
+    if (parseAppointmentDateTime(appointment.date, appointment.time)) continue;
+    const label = [appointment.type, appointment.provider].filter(Boolean).join(" with ") || "An appointment";
+    notes.push({
+      kind: "no_exact_time",
+      message: `${label} has no exact date and time, so it won't be added to your schedule. Add both if you know them.`,
+    });
+  }
+
+  return notes;
+}
+
 export async function confirmDocument(input: ConfirmDocumentInput): Promise<ConfirmDocumentResult> {
   const parsed = extractedDocumentSchema.safeParse(input.editedData);
   if (!parsed.success) {
@@ -338,6 +387,7 @@ export async function confirmDocument(input: ConfirmDocumentInput): Promise<Conf
         documentName: documentRow.document_name,
         hasChanges: false,
         summary: [],
+        notChanged: [],
       };
     }
 
@@ -401,12 +451,19 @@ export async function confirmDocument(input: ConfirmDocumentInput): Promise<Conf
     await client.query("COMMIT");
 
     const summary = [...summarizeReconciliation({ ...reconciliation, newAppointments: addedAppointments }), ...skippedAppointments];
+    const notChanged = reconciliation.medicationChanges
+      .filter((change) => change.type === "CONFLICTING")
+      .map((change) => ({
+        type: "medication_not_changed",
+        summary: `${change.medicationName} was left as it is in the care record. This document doesn't clearly say it started, changed or stopped, so nothing was changed.`,
+      }));
 
     return {
       status: "confirmed",
       documentName: documentRow.document_name,
       hasChanges: reconciliation.hasChanges || skippedAppointments.length > 0,
       summary,
+      notChanged,
     };
   } catch (error) {
     await client.query("ROLLBACK");

@@ -9,29 +9,129 @@ export interface SaveDocumentExtractionInput {
   documentName: string;
   mimeType: string;
   fileSizeBytes: number;
+  contentHash: string;
   extractedData: NormalizedDocument;
 }
 
-export async function saveDocumentExtraction(input: SaveDocumentExtractionInput): Promise<string> {
-  const pool = getPool();
-  const id = randomUUID();
-  await pool.query(
-    `INSERT INTO documents
-       (id, parent_id, uploaded_by, document_name, document_type, storage_key, mime_type, file_size_bytes, extracted_data, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'needs_confirmation')`,
-    [
-      id,
-      input.parentId,
-      input.uploadedBy,
-      input.documentName,
-      input.extractedData.documentType,
-      `unstored:${randomUUID()}`,
-      input.mimeType,
-      input.fileSizeBytes,
-      input.extractedData,
-    ]
+// The raw file is not stored (documents.storage_key is required but there is no file store),
+// so the key doubles as a per-parent fingerprint of the file's bytes.
+export function contentKey(contentHash: string): string {
+  return `unstored:sha256:${contentHash}`;
+}
+
+export interface ExistingDocument {
+  id: string;
+  status: string;
+  extractedData: unknown;
+}
+
+// A document this parent already uploaded with byte-identical contents. Failed rows don't
+// count: those never produced anything worth reusing.
+export async function findDocumentByContent(parentId: string, contentHash: string): Promise<ExistingDocument | null> {
+  const result = await getPool().query<{ id: string; status: string; extracted_data: unknown }>(
+    `SELECT id, status, extracted_data FROM documents
+     WHERE parent_id = $1 AND storage_key = $2 AND status <> 'failed'
+     ORDER BY created_at ASC LIMIT 1`,
+    [parentId, contentKey(contentHash)]
   );
-  return id;
+  const row = result.rows[0];
+  return row ? { id: row.id, status: row.status, extractedData: row.extracted_data } : null;
+}
+
+export interface SavedDocument {
+  id: string;
+  duplicate: boolean;
+}
+
+// Inserts the extraction as an unconfirmed draft. If the same parent uploads the same bytes
+// again (double tap, retry, two tabs) the earlier row wins and no second row is created; the
+// advisory lock makes that hold even when both requests are in flight at once.
+export async function saveDocumentExtraction(input: SaveDocumentExtractionInput): Promise<SavedDocument> {
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`doc:${input.parentId}:${input.contentHash}`]);
+
+    const existing = await client.query<{ id: string }>(
+      `SELECT id FROM documents WHERE parent_id = $1 AND storage_key = $2 AND status <> 'failed' ORDER BY created_at ASC LIMIT 1`,
+      [input.parentId, contentKey(input.contentHash)]
+    );
+    if (existing.rows[0]) {
+      await client.query("COMMIT");
+      return { id: existing.rows[0].id, duplicate: true };
+    }
+
+    const id = randomUUID();
+    await client.query(
+      `INSERT INTO documents
+         (id, parent_id, uploaded_by, document_name, document_type, storage_key, mime_type, file_size_bytes, extracted_data, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'needs_confirmation')`,
+      [
+        id,
+        input.parentId,
+        input.uploadedBy,
+        input.documentName,
+        input.extractedData.documentType,
+        contentKey(input.contentHash),
+        input.mimeType,
+        input.fileSizeBytes,
+        input.extractedData,
+      ]
+    );
+    await client.query("COMMIT");
+    return { id, duplicate: false };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export interface ParentDocumentSummary {
+  id: string;
+  documentName: string;
+  documentType: string;
+  status: string;
+  uploadedAt: string;
+  reviewedAt: string | null;
+}
+
+// Safe metadata only: no extracted or reviewed content ever leaves through this list.
+export async function listParentDocuments(parentId: string): Promise<ParentDocumentSummary[]> {
+  const result = await getPool().query<{
+    id: string;
+    document_name: string;
+    document_type: string;
+    status: string;
+    created_at: Date;
+    reviewed_at: Date | null;
+  }>(
+    `SELECT id, document_name, document_type, status, created_at, reviewed_at
+     FROM documents WHERE parent_id = $1 ORDER BY created_at DESC LIMIT 50`,
+    [parentId]
+  );
+  return result.rows.map((row) => ({
+    id: row.id,
+    documentName: row.document_name,
+    documentType: row.document_type,
+    status: row.status,
+    uploadedAt: row.created_at.toISOString(),
+    reviewedAt: row.reviewed_at ? row.reviewed_at.toISOString() : null,
+  }));
+}
+
+// The parent's own draft, for reopening a review they left. Scoped to the parent in SQL.
+export async function getParentDocumentDraft(
+  parentId: string,
+  documentId: string
+): Promise<{ id: string; status: string; documentName: string; extractedData: unknown } | null> {
+  const result = await getPool().query<{ id: string; status: string; document_name: string; extracted_data: unknown }>(
+    `SELECT id, status, document_name, extracted_data FROM documents WHERE id = $1 AND parent_id = $2`,
+    [documentId, parentId]
+  );
+  const row = result.rows[0];
+  return row ? { id: row.id, status: row.status, documentName: row.document_name, extractedData: row.extracted_data } : null;
 }
 
 export interface ChangeSummary {
@@ -47,9 +147,15 @@ export interface LatestChangesResult {
   documentCount: number;
 }
 
+// A stored reviewed document should carry RxNorm data on each medication, but older or
+// hand-entered rows may not. Treat a missing value as "no RxNorm match" (name matching still
+// works) rather than letting one such row take down the whole What Changed view.
 function documentToCareState(document: NormalizedDocument): CareState {
   return {
-    medications: document.medications,
+    medications: document.medications.map((medication) => ({
+      ...medication,
+      rxnorm: medication.rxnorm ?? { rxcui: null, normalizedName: null },
+    })),
     appointments: document.appointments,
     followUps: document.followUps,
     instructions: document.instructions,
@@ -148,7 +254,8 @@ export async function getLatestChanges(parentId: string): Promise<LatestChangesR
   }
 
   const previousState = documentToCareState(older.reviewed_data);
-  const reconciliation = reconcileCareState(previousState, newer.reviewed_data);
+  const newerDocument: NormalizedDocument = { ...newer.reviewed_data, medications: documentToCareState(newer.reviewed_data).medications as NormalizedDocument["medications"] };
+  const reconciliation = reconcileCareState(previousState, newerDocument);
   const changes = summarizeReconciliation(reconciliation);
 
   return {

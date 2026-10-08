@@ -421,7 +421,7 @@ body:has(.page.is-home)::after { display: none; }
 .doc-types .chip { margin: 0; }
 .history-item { padding: 0.8rem 0; border-bottom: 1px solid var(--line); }
 .history-item strong { display: block; }
-.history-item span { color: var(--muted); font-size: 1rem; }
+.history-item span { display: block; color: var(--muted); font-size: 1rem; }
 #historyTitle { margin-bottom: 0.4rem; }
 
 .toast { padding: 0.65rem 0.9rem; border-radius: var(--radius); border: 1px solid var(--green); color: var(--forest); font-weight: 700; width: 100%; }
@@ -483,6 +483,11 @@ dialog.wide { width: min(660px, calc(100vw - 2rem)); }
 .review-link-button:hover { border-color: var(--green); }
 .review-link-remove { color: var(--error); border-color: rgba(163, 38, 30, 0.4); }
 .review-error { color: var(--error); font-weight: 700; }
+.review-notes { border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 0.75rem 1rem; background: var(--surface, transparent); }
+.review-note { margin: 0.35rem 0; }
+.history-item .history-status { display: inline-block; margin-top: 0.2rem; font-weight: 700; }
+.history-item .history-status.needs-review { color: var(--clay, var(--error)); }
+.history-item .review-link-button { margin-top: 0.4rem; }
 
 /* ---------- Responsive ---------- */
 
