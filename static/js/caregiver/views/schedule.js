@@ -108,7 +108,8 @@ export function createSchedule(root) {
     const b = state.slices.appointments;
     if (isLoading(a) && isLoading(b)) return listWrap.replaceChildren(skeletons(4));
     if (a.status === "error" && b.status === "error") return listWrap.replaceChildren(errorState(`Couldn't load the schedule. ${a.error}`, () => reload(["upcoming", "appointments"])));
-    const items = buildAgenda(a.data, b.data);
+    const t = state.slices.tasks;
+    const items = buildAgenda(a.data, b.data, t.status === "ready" ? t.data : []);
     const frag = document.createDocumentFragment();
     if (items.length === 0) {
       frag.append(emptyState("calendar-days", "Nothing scheduled", `Appointments ${parentFirstName()} confirms and events you add appear here.`));
@@ -152,7 +153,7 @@ export function createSchedule(root) {
   }
 
   function render() {
-    sub.textContent = `Confirmed appointments and events for ${parentFirstName()}. The calendar button adds one to Google Calendar.`;
+    sub.textContent = `Appointments, events and scheduled tasks for ${parentFirstName()}. Use the calendar button to add one to Google Calendar or download a calendar file.`;
     headActions.replaceChildren(scoreStatus, scoreButton);
     upTab.setAttribute("aria-selected", String(tab === "upcoming"));
     pastTab.setAttribute("aria-selected", String(tab === "past"));

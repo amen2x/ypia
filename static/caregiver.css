@@ -289,6 +289,25 @@ textarea.input { min-height: 7rem; resize: vertical; line-height: 1.5; }
 .choice .icon { margin-left: auto; color: var(--green); }
 .profile-lines { color: var(--muted); }
 
+/* ---------- Add to calendar menu + schedule dialog ---------- */
+
+.cal-menu { position: relative; }
+.cal-menu > .icon-btn { border-color: transparent; }
+.cal-menu > .icon-btn:hover, .cal-menu > .icon-btn[aria-expanded="true"] { border-color: var(--green); }
+.cal-popup {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 17rem; padding: 0.3rem;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(23, 63, 35, 0.18);
+}
+.cal-popup--up { top: auto; bottom: calc(100% + 4px); }
+.cal-item {
+  display: flex; align-items: center; gap: 0.6rem; width: 100%; min-height: 44px; padding: 0.4rem 0.8rem; border: 0; border-radius: 6px;
+  background: transparent; color: var(--forest); text-decoration: none; text-align: left; cursor: pointer;
+  font-family: var(--font-display); font-weight: 600; font-size: 0.95rem;
+}
+.cal-item:hover, .cal-item:focus-visible { background: var(--sage-wash); }
+.cal-item .icon { color: var(--green); }
+.sched-times { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
 /* ---------- Small helpers ---------- */
 
 .linklike { padding: 0; border: 0; background: none; font: inherit; font-family: var(--font-display); font-weight: 600; color: var(--forest); text-align: left; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); min-height: 24px; }
@@ -339,6 +358,8 @@ textarea.input { min-height: 7rem; resize: vertical; line-height: 1.5; }
   .ov-kind { width: 5.2rem; }
   .ov-summary { margin-top: 2rem; }
   .rail-sep { display: none; }
+  .sched-times { grid-template-columns: 1fr; }
+  .cal-popup { min-width: min(17rem, calc(100vw - 2rem)); }
   .task-form { grid-template-columns: 1fr 1fr; }
   .task-form .field:first-child { grid-column: 1 / -1; }
   .task-form .btn { grid-column: 1 / -1; }

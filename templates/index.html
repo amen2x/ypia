@@ -107,6 +107,28 @@
     </div>
   </dialog>
 
+  <!-- Give a task a saved date (and optional start / end time) so it can be added to a calendar -->
+  <dialog id="scheduleDialog" aria-labelledby="scheduleDialogTitle">
+    <form id="scheduleForm" class="dialog-body" novalidate>
+      <div class="dialog-head">
+        <h2 class="dialog-title" id="scheduleDialogTitle">Schedule this task</h2>
+        <button class="icon-btn" type="button" data-close aria-label="Close"><svg class="icon" aria-hidden="true"><use href="/static/icons/sprite.svg#i-x"/></svg></button>
+      </div>
+      <p id="scheduleTaskTitle" class="muted"></p>
+      <div class="field"><label for="scheduleDate">Date</label><input id="scheduleDate" class="input" type="date" required></div>
+      <div class="sched-times">
+        <div class="field"><label for="scheduleStart">Start time (optional)</label><input id="scheduleStart" class="input" type="time"></div>
+        <div class="field"><label for="scheduleEnd">End time (optional)</label><input id="scheduleEnd" class="input" type="time"></div>
+      </div>
+      <p class="form-help">With only a date, it becomes an all-day item. With a start time and no end time, calendars show 30 minutes. Times have no timezone: they appear at that clock time in your own calendar.</p>
+      <p id="scheduleStatus" class="status-line" role="status"></p>
+      <div class="dialog-actions">
+        <button id="scheduleClear" class="btn btn-danger" type="button" hidden>Remove date</button>
+        <button id="scheduleSave" class="btn btn-primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Document details (confirmed or awaiting confirmation) -->
   <dialog id="docDialog" class="wide" aria-labelledby="docDialogTitle">
     <div class="dialog-body">

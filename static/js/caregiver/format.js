@@ -59,12 +59,6 @@ export function timeAgo(iso) {
 }
 
 // An instant as the wall-clock date/time the calendar export expects.
-export function scheduleWallClock(instant) {
-  const d = new Date(instant);
-  const date = new Intl.DateTimeFormat("en-CA", { timeZone: SCHEDULE_TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
-  const time = new Intl.DateTimeFormat("en-GB", { timeZone: SCHEDULE_TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
-  return { date, time };
-}
 
 // Urgency is derived from an explicit date only; nothing is stored or guessed.
 export function dueInfo(task) {
@@ -94,4 +88,15 @@ export function shortWhen(date, time) {
   if (diff === 1) return `Tomorrow${t}`;
   if (diff < 7) return `${fmtDow(d)}${t}`;
   return `${fmtDate(d)}${t}`;
+}
+
+// A task's explicit date (+ optional time) as a local Date, for ordering it next to events.
+export function taskStart(date, time) {
+  const d = parseISODate(date);
+  const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i.exec(String(time || "").trim());
+  if (!m) return d;
+  let h = Number(m[1]);
+  if (m[3]) h = (h % 12) + (m[3].toUpperCase() === "PM" ? 12 : 0);
+  d.setHours(h, Number(m[2]), 0, 0);
+  return d;
 }

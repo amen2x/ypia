@@ -1,10 +1,11 @@
 // Shared building blocks for the caregiver views. Text is always set via textContent.
 
 import { el, icon, initialsOf } from "../parent/dom.js";
-import { api } from "./api.js";
-import { dueInfo, fmtDayNum, fmtDow, fmtTime, scheduleWallClock, timeAgo } from "./format.js";
+import { dayDiff, dueInfo, fmtDayNum, fmtDow, fmtTime, taskStart, timeAgo } from "./format.js";
+import { calendarMenu, taskCalendarControl } from "./calendar.js";
 
 export { el, icon, initialsOf };
+export { showToast } from "./toast.js";
 
 export function chip(kind, iconName, text) {
   const node = el("span", `chip chip--${kind}`);
@@ -72,29 +73,6 @@ export function iconButton(iconName, label, onClick) {
   return button;
 }
 
-let toastTimer = null;
-// A brief, announced confirmation or error message. Also mirrored to the live region.
-export function showToast(text, isError = false) {
-  const live = document.getElementById("liveStatus");
-  if (live) live.textContent = text;
-  let box = document.getElementById("toast");
-  if (!box) {
-    box = el("div", "toast");
-    box.id = "toast";
-    box.setAttribute("aria-hidden", "true");
-    document.body.append(box);
-  }
-  box.textContent = text;
-  box.classList.toggle("is-error", isError);
-  box.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { box.hidden = true; }, isError ? 7000 : 3500);
-}
-
-export function openCalendar(url) {
-  window.open(url, "_blank", "noopener");
-}
-
 // ---------- Tasks and parent requests ----------
 
 export const isParentRequest = (task) => task.source === "voice";
@@ -133,19 +111,15 @@ export function taskRow(task, { parentFirst, onToggle, busy }) {
   meta.append(request ? chip("request", "mic", `Request from ${parentFirst}`) : chip("muted", "user-round", "Your task"));
   const due = dueInfo(task);
   if (due) meta.append(chip(due.kind === "none" || due.kind === "later" ? "muted" : due.kind, due.icon, due.label));
+  else if (!done) meta.append(chip("muted", "calendar-days", "No date yet"));
   if (task.appointmentTitle) meta.append(chip("muted", "calendar-check", `Appointment: ${task.appointmentTitle}`));
   const when = done && task.completedAt ? `Done ${timeAgo(task.completedAt)}` : task.createdAt ? `Added ${timeAgo(task.createdAt)}` : "";
   if (when) meta.append(el("span", "", when));
   body.append(meta);
 
   const actions = el("div", "task-actions");
-  if (task.date && !done) {
-    actions.append(
-      iconButton("calendar-plus", `Add to Google Calendar: ${task.text}`, () =>
-        openCalendar(api.calendarUrl({ title: task.text, date: task.date, time: task.time || undefined, endTime: task.endTime || undefined }))
-      )
-    );
-  }
+  const control = taskCalendarControl(task); // Add to calendar (scheduled) or Schedule (no date yet)
+  if (control) actions.append(control);
 
   item.append(check, body, actions);
   return item;
@@ -153,18 +127,26 @@ export function taskRow(task, { parentFirst, onToggle, busy }) {
 
 // ---------- Agenda (appointments + schedule events) ----------
 
-export function buildAgenda(events, appointments) {
+export function buildAgenda(events, appointments, tasks = []) {
   const items = [];
   for (const ev of events || []) {
     const start = new Date(ev.start_time);
     if (Number.isNaN(start.getTime())) continue;
     const end = new Date(ev.end_time);
-    items.push({ kind: "event", key: `e-${ev.id}`, title: ev.title, start, end: Number.isNaN(end.getTime()) ? null : end, location: ev.location, withWhom: ev.with_whom, category: ev.category });
+    items.push({ kind: "event", id: ev.id, key: `e-${ev.id}`, title: ev.title, start, end: Number.isNaN(end.getTime()) ? null : end, location: ev.location, withWhom: ev.with_whom, category: ev.category });
   }
   for (const ap of appointments || []) {
     const start = new Date(ap.startsAt);
     if (Number.isNaN(start.getTime())) continue;
-    items.push({ kind: "appointment", key: `a-${ap.id}`, title: ap.title || "Appointment", start, end: null, tz: ap.timezone || undefined, location: ap.location, withWhom: ap.provider, status: ap.status });
+    items.push({ kind: "appointment", id: ap.id, key: `a-${ap.id}`, title: ap.title || "Appointment", start, end: null, tz: ap.timezone || undefined, location: ap.location, withWhom: ap.provider, status: ap.status });
+  }
+  // Open tasks that have an explicit date (their own, or their linked appointment's) belong on the schedule too.
+  for (const task of tasks || []) {
+    if (task.status !== "open" || !task.date) continue;
+    if (dayDiff(task.date) < 0) continue; // overdue tasks live in Tasks, not in what is coming up
+    const start = taskStart(task.date, task.time);
+    const end = task.time && task.endTime ? taskStart(task.date, task.endTime) : null;
+    items.push({ kind: "task", id: task.id, key: `t-${task.id}`, title: task.text, start, end, allDay: !task.time, location: null, withWhom: null, request: task.source === "voice" });
   }
   // The same visit can exist as a schedule event and a confirmed appointment; keep the confirmed one.
   const seen = new Map();
@@ -181,6 +163,8 @@ function metaLine(iconName, text) {
   return span;
 }
 
+const CALENDAR_KIND = { appointment: "appointment", event: "schedule", task: "action" };
+
 export function eventRow(item, { isNext } = {}) {
   const row = el("li", `event${isNext ? " is-next" : ""}`);
   const date = el("div", "event-date");
@@ -188,7 +172,7 @@ export function eventRow(item, { isNext } = {}) {
 
   const main = el("div");
   main.append(el("p", "event-title", item.title));
-  const time = item.end && item.end > item.start ? `${fmtTime(item.start, item.tz)} – ${fmtTime(item.end, item.tz)}` : fmtTime(item.start, item.tz);
+  const time = item.allDay ? "All day" : item.end && item.end > item.start ? `${fmtTime(item.start, item.tz)} – ${fmtTime(item.end, item.tz)}` : fmtTime(item.start, item.tz);
   const meta = el("div", "event-meta");
   meta.append(metaLine("clock", time));
   if (item.location) meta.append(metaLine("map-pin", item.location));
@@ -197,18 +181,13 @@ export function eventRow(item, { isNext } = {}) {
 
   const chips = el("div", "event-chips");
   if (item.kind === "appointment") chips.append(item.status === "confirmed" || !item.status ? chip("ok", "file-check", "Confirmed appointment") : chip("muted", null, item.status));
+  else if (item.kind === "task") chips.append(item.request ? chip("request", "mic", "Request") : chip("muted", "list-checks", "Task"));
   else if (item.category) chips.append(chip("muted", null, item.category));
   if (isNext) chips.append(chip("request", "clock", "Next up"));
   main.append(chips);
 
   const actions = el("div", "task-actions");
-  const wall = scheduleWallClock(item.start);
-  let endTime;
-  if (item.end && item.end > item.start) {
-    const endWall = scheduleWallClock(item.end);
-    if (endWall.date === wall.date) endTime = endWall.time;
-  }
-  actions.append(iconButton("calendar-plus", `Add to Google Calendar: ${item.title}`, () => openCalendar(api.calendarUrl({ title: item.title, date: wall.date, time: wall.time, endTime }))));
+  actions.append(calendarMenu({ kind: CALENDAR_KIND[item.kind], id: item.id, title: item.title }));
 
   row.append(date, main, actions);
   return row;

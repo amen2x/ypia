@@ -6,6 +6,7 @@ import { api } from "../api.js";
 import { state, parentName, parentFirstName, reload, user } from "../store.js";
 import { busyTasks, toggleTask } from "../actions.js";
 import { attentionRank, buildAgenda, el, emptyState, errorState, icon, isParentRequest, skeletons } from "../ui.js";
+import { calendarMenu } from "../calendar.js";
 import { dayDiff, fmtDate, fmtDayNum, fmtDow, fmtLongDate, fmtTime, shortWhen } from "../format.js";
 
 const isLoading = (slice) => slice.status === "idle" || slice.status === "loading";
@@ -119,6 +120,8 @@ export function createOverview(root) {
       body.append(el("p", "ov-row-title", item.title));
       body.append(el("p", "ov-meta ov-oneline", [fmtTime(item.start, item.tz), item.location].filter(Boolean).join(" · ")));
       row.append(date, body);
+      // One compact action: Add to calendar (Google Calendar or a .ics file).
+      if (item.id) row.append(calendarMenu({ kind: item.kind === "appointment" ? "appointment" : "schedule", id: item.id, title: item.title }));
       list.append(row);
     });
     agenda.append(list);

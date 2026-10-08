@@ -17,7 +17,9 @@
     "test-conversation-memory": "node --env-file=.env --import tsx src/testConversationMemory.ts",
     "test-document-confirmation": "node --env-file=.env --import tsx src/testDocumentConfirmation.ts",
     "test-caregiver-actions": "node --env-file=.env --import tsx src/testCaregiverActions.ts",
-    "start": "node --watch --env-file-if-exists=../.env --env-file=.env --import tsx src/server.ts"
+    "start": "node --watch --env-file-if-exists=../.env --env-file=.env --import tsx src/server.ts",
+    "test-calendar-export": "tsx src/testCalendarExport.ts",
+    "test-parent-request-flow": "tsx src/testParentRequestFlow.ts"
   },
   "dependencies": {
     "@google/genai": "^2.24.0",

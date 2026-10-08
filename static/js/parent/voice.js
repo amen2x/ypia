@@ -16,6 +16,79 @@ const COPY = {
   speaking: { status: "Speaking…", hint: "Tap to stop." },
 };
 
+// Local development only: show a technical hint (names and codes, never secrets) under the friendly message.
+const DEV = ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
+
+// What we tell the parent, and (in development) what to check. Nothing here can contain a secret.
+const FAILURES = {
+  app_unreachable: { status: "Can\u2019t reach Y.P.I.A.", hint: "Check your internet connection, then tap to try again.", dev: "The page could not reach its own server (is Flask running on port 5000?)." },
+  backend_unavailable: { status: "Y.P.I.A.\u2019s server isn\u2019t running", hint: "Please let your caregiver know, then tap to try again.", dev: "Flask is up but the backend is not answering (is Express running on port 3000? start it from the backend folder)." },
+  not_configured: { status: "Voice isn\u2019t set up yet", hint: "Please let your caregiver know.", dev: "ELEVENLABS_API_KEY or ELEVENLABS_AGENT_ID is missing on the backend (check backend/.env and that npm start ran from backend/)." },
+  elevenlabs_auth: { status: "The voice service isn\u2019t accepting this app", hint: "Please let your caregiver know.", dev: "ElevenLabs credentials/configuration appear invalid or rejected." },
+  elevenlabs_agent: { status: "The voice assistant isn\u2019t available", hint: "Please let your caregiver know.", dev: "ElevenLabs could not find or accept the configured agent id." },
+  elevenlabs_rate_limited: { status: "The voice service is busy", hint: "Wait a moment, then tap to try again.", dev: "ElevenLabs rate limit or quota reached." },
+  elevenlabs_unavailable: { status: "The voice service had a problem", hint: "Wait a moment, then tap to try again.", dev: "ElevenLabs returned a server error." },
+  elevenlabs_unreachable: { status: "Couldn\u2019t reach the voice service", hint: "Check your internet connection, then tap to try again.", dev: "The backend could not reach api.elevenlabs.io." },
+  no_signed_url: { status: "Couldn\u2019t start the voice session", hint: "Wait a moment, then tap to try again.", dev: "ElevenLabs answered without a session link." },
+  bad_response: { status: "Couldn\u2019t start the voice session", hint: "Wait a moment, then tap to try again.", dev: "The signed-url response was missing a signedUrl field holding a websocket address." },
+  connect_failed: { status: "Couldn\u2019t connect", hint: "Check your internet connection, then tap to try again.", dev: "The ElevenLabs SDK could not open its WebSocket connection." },
+  server_error: { status: "Couldn\u2019t connect", hint: "Wait a moment, then tap to try again.", dev: "The signed-url request failed with an unexpected server error." },
+  no_microphone: { status: "No microphone found", hint: "Plug in or turn on a microphone, then tap to try again.", dev: "getUserMedia: no audio input device." },
+  microphone_failed: { status: "Couldn\u2019t use the microphone", hint: "Close other apps that might be using it, then tap to try again.", dev: "getUserMedia failed for a reason other than permission." },
+};
+
+// The ElevenLabs agent's create_caregiver_action schema marks every field as required, so for "no date"
+// it sends an empty string (or a placeholder word) instead of leaving the field out. Those are not dates:
+// treat them as "not provided". Anything else, including values of the wrong type, is passed through
+// untouched so the server still validates it. A real date is never guessed here.
+const NOT_PROVIDED = new Set(["none", "null", "undefined", "n/a", "na", "unknown", "unspecified", "not specified", "not provided", "no date", "no time", "-", "\u2014"]);
+
+function omitPlaceholder(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (trimmed === "" || NOT_PROVIDED.has(trimmed.toLowerCase())) return null;
+  return trimmed;
+}
+
+// What the agent is told when a request could not be saved. It always says plainly that nothing was
+// sent, so the agent cannot truthfully tell the parent otherwise.
+function requestFailureMessage(status) {
+  const base = "so the request was NOT sent. Do not tell the parent it was sent.";
+  if (status === 400) return `Y.P.I.A. could not use the details of that request, ${base}`;
+  if (status === 404) return `Y.P.I.A. could not find this parent's account, ${base}`;
+  return `Y.P.I.A. could not save that request right now, ${base}`;
+}
+
+class VoiceSetupError extends Error {
+  constructor(kind) {
+    super(kind);
+    this.kind = kind;
+  }
+}
+
+// Strips anything that could be a URL or token before an error is logged.
+const safeError = (error) =>
+  `${error?.name || "Error"}: ${String(error?.message || error || "").replace(/\b(?:wss?|https?):\/\/\S+/gi, "<url>").replace(/[A-Za-z0-9_\-]{32,}/g, "<redacted>").slice(0, 140)}`;
+
+async function requestSignedUrl() {
+  let response;
+  try {
+    response = await fetch("/api/elevenlabs/signed-url");
+  } catch {
+    throw new VoiceSetupError("app_unreachable");
+  }
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    if (response.status === 503 || (body && typeof body.error === "string" && body.error.startsWith("Backend proxy error"))) {
+      throw new VoiceSetupError("backend_unavailable");
+    }
+    throw new VoiceSetupError(body && FAILURES[body.code] ? body.code : "server_error");
+  }
+  if (!body || typeof body.signedUrl !== "string" || !/^wss?:\/\//.test(body.signedUrl)) throw new VoiceSetupError("bad_response");
+  return body.signedUrl;
+}
+
 export function initVoice({ orb, statusEl, hintEl, cardEl, user }) {
   let conversation = null;
   let activeConversationId = null;
@@ -23,6 +96,8 @@ export function initVoice({ orb, statusEl, hintEl, cardEl, user }) {
   let currentMode = "listening";
   let orbAnimationFrame = null;
   const syncConversation = createConversationSync();
+  // Requests already sent (or being sent) in this page session, so an agent retry never creates a second one.
+  const sentRequests = new Map();
 
   function show(state, status, hint) {
     const copy = COPY[state];
@@ -30,6 +105,13 @@ export function initVoice({ orb, statusEl, hintEl, cardEl, user }) {
     statusEl.textContent = status ?? copy?.status ?? "";
     hintEl.textContent = hint ?? copy?.hint ?? "";
     cardEl.classList.toggle("is-error", state === "error");
+  }
+
+  // One place that turns a failure kind into the error state (and, locally, a technical hint).
+  function showFailure(kind, error) {
+    const failure = FAILURES[kind] || FAILURES.server_error;
+    if (DEV) console.warn(`[voice] ${kind}${error && !(error instanceof VoiceSetupError) ? ` - ${safeError(error)}` : ""}`);
+    show("error", failure.status, DEV ? `${failure.hint} (${failure.dev})` : failure.hint);
   }
 
   function animateOrb() {
@@ -101,16 +183,17 @@ export function initVoice({ orb, statusEl, hintEl, cardEl, user }) {
     try {
       const permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       permissionStream.getTracks().forEach((track) => track.stop());
-    } catch {
+    } catch (error) {
       finishConversation(session);
-      show("error", "Microphone access denied", "Please allow the microphone in your browser, then tap to try again.");
+      if (DEV) console.warn("[voice] microphone:", safeError(error));
+      if (error?.name === "NotFoundError" || error?.name === "OverconstrainedError") showFailure("no_microphone");
+      else if (error?.name === "NotAllowedError" || error?.name === "SecurityError") show("error", "Microphone access denied", "Please allow the microphone in your browser, then tap to try again.");
+      else showFailure("microphone_failed");
       return;
     }
 
     try {
-      const response = await fetch("/api/elevenlabs/signed-url");
-      if (!response.ok) throw new Error("signed-url request failed");
-      const { signedUrl } = await response.json();
+      const signedUrl = await requestSignedUrl();
 
       session.connection = await Conversation.startSession({
         signedUrl,
@@ -255,35 +338,58 @@ export function initVoice({ orb, statusEl, hintEl, cardEl, user }) {
           },
           create_caregiver_action: async ({ text, appointmentId, scheduledDate, scheduledTime, scheduledEndTime } = {}) => {
             if (!user?.id) {
-              return { status: "error", message: "No logged-in parent found." };
+              return { status: "error", message: "No logged-in parent was found, so the request was NOT sent. Do not tell the parent it was sent." };
             }
             if (!text || typeof text !== "string" || !text.trim()) {
-              return { status: "error", message: "No request text was provided." };
+              return { status: "error", message: "No request text was provided, so the request was NOT sent. Do not tell the parent it was sent." };
             }
 
-            try {
-              const apiResponse = await fetch("/api/parent/caregiver-actions", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  userId: user.id,
-                  text: text.trim(),
-                  conversationId: activeConversationId,
-                  appointmentId: typeof appointmentId === "string" ? appointmentId : null,
-                  scheduledDate: scheduledDate ?? null,
-                  scheduledTime: scheduledTime ?? null,
-                  scheduledEndTime: scheduledEndTime ?? null,
-                }),
-              });
+            const payload = {
+              userId: user.id,
+              text: text.trim(),
+              conversationId: activeConversationId,
+              appointmentId: typeof appointmentId === "string" ? omitPlaceholder(appointmentId) : null,
+              scheduledDate: omitPlaceholder(scheduledDate),
+              scheduledTime: omitPlaceholder(scheduledTime),
+              scheduledEndTime: omitPlaceholder(scheduledEndTime),
+            };
 
-              if (!apiResponse.ok) {
-                return { status: "error", message: "Could not send that request to your caregiver right now." };
+            // The same request twice (an agent retry, or a second call while the first is in flight) is one request.
+            // Only inside a conversation: with no conversation id two identical requests are not known to be a retry.
+            const key = JSON.stringify([payload.conversationId, payload.text.toLowerCase(), payload.appointmentId, payload.scheduledDate, payload.scheduledTime, payload.scheduledEndTime]);
+            if (payload.conversationId && sentRequests.has(key)) {
+              const earlier = await sentRequests.get(key);
+              return earlier.status === "ok"
+                ? { ...earlier, duplicate: true, message: "That exact request was already sent, so nothing new was created." }
+                : earlier;
+            }
+
+            const attempt = (async () => {
+              try {
+                const apiResponse = await fetch("/api/parent/caregiver-actions", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(payload),
+                });
+                const data = await apiResponse.json().catch(() => null);
+                if (!apiResponse.ok) return { status: "error", message: requestFailureMessage(apiResponse.status) };
+                const action = data && data.action ? data.action : {};
+                return {
+                  status: "ok",
+                  message: "The request was saved and the caregiver can now see it in Y.P.I.A.",
+                  actionId: action.id,
+                  duplicate: data?.status === "duplicate",
+                  scheduled: Boolean(action.scheduled),
+                  appointmentLinked: Boolean(action.appointmentLinked),
+                };
+              } catch {
+                return { status: "error", message: requestFailureMessage(0) };
               }
-
-              return { status: "ok" };
-            } catch {
-              return { status: "error", message: "Could not send that request to your caregiver right now." };
-            }
+            })();
+            if (payload.conversationId) sentRequests.set(key, attempt);
+            const result = await attempt;
+            if (result.status !== "ok") sentRequests.delete(key); // a failed attempt may be tried again
+            return result;
           },
         },
         onConnect: ({ conversationId }) => {
@@ -310,8 +416,9 @@ export function initVoice({ orb, statusEl, hintEl, cardEl, user }) {
           if (activeSession !== session || session.finished) return;
           if (source === "user" && currentMode !== "speaking") show("thinking");
         },
-        onError: () => {
+        onError: (message) => {
           if (activeSession !== session) return;
+          if (DEV) console.warn("[voice] SDK error:", safeError(message));
           show("error", "Something went wrong", "Tap to end this call, then try again.");
         },
       });
@@ -320,10 +427,10 @@ export function initVoice({ orb, statusEl, hintEl, cardEl, user }) {
         conversation = session.connection;
         orb.setBusy(false);
       }
-    } catch {
+    } catch (error) {
       if (activeSession === session) {
         finishConversation(session);
-        show("error", "Couldn't connect", "Check your internet connection, then tap to try again.");
+        showFailure(error instanceof VoiceSetupError ? error.kind : "connect_failed", error);
       }
     }
   }

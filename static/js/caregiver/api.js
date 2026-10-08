@@ -57,6 +57,9 @@ export const api = {
   actions: (userId) => request(`/api/caregiver/actions?${query({ userId })}`),
   createAction: (body) => request("/api/caregiver/actions", json("POST", body)),
   setActionStatus: (actionId, userId, status) => request(`/api/caregiver/actions/${enc(actionId)}`, json("PATCH", { userId, status })),
+  // Saves an explicit date (and optional start/end time) on a task; all null clears it.
+  scheduleAction: (actionId, userId, { scheduledDate, scheduledTime, scheduledEndTime }) =>
+    request(`/api/caregiver/actions/${enc(actionId)}/schedule`, json("PATCH", { userId, scheduledDate, scheduledTime: scheduledTime ?? null, scheduledEndTime: scheduledEndTime ?? null })),
 
   // notes about the parent (also what the voice assistant knows)
   saveNotes: (parentId, backgroundNotes) => request(`/api/parents/${enc(parentId)}/background`, json("PUT", { backgroundNotes })),
@@ -77,11 +80,7 @@ export const api = {
   streak: (userId) => request(`/api/streak?${query({ userId })}`),
   checkIn: (userId) => request("/api/streak/checkin", json("POST", { userId })),
 
-  // Google Calendar export: only ever called with an explicit date (never inferred from text).
-  calendarUrl: ({ title, date, time, endTime }) => {
-    const params = { title, date };
-    if (time) params.time = time;
-    if (endTime) params.endTime = endTime;
-    return `/api/calendar/template?${query(params)}`;
-  },
+  // Calendar export of ONE stored record (kind: appointment | action | schedule). The server builds the
+  // event from the record's structured fields, so nothing here can export a date it guessed.
+  calendarExportUrl: (kind, id, format, userId) => `/api/caregiver/calendar/${enc(kind)}/${enc(id)}?${query({ userId, format })}`,
 };
