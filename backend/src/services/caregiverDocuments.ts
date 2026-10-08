@@ -11,6 +11,8 @@ export interface SharedDocument {
   // 'confirmed' once the parent has reviewed it; anything else is an unreviewed AI draft.
   status: string;
   reviewedAt: string | null;
+  // The parent-confirmed values. Always null until the document is confirmed: an AI
+  // reading is never shared with a caregiver as care information.
   extractedData: unknown;
 }
 
@@ -32,10 +34,11 @@ export async function listSharedDocuments(parentIds: string[]): Promise<SharedDo
     extracted_data: unknown;
     parent_name: string;
   }>(
-    // Once a document is confirmed, the user-reviewed values are what a caregiver
-    // should see — not the original, possibly-corrected AI draft.
+    // Only the parent's reviewed values are ever selected, and only once the document is
+    // confirmed. The raw AI extraction (extracted_data) is never read here, so an
+    // unreviewed or since-corrected reading cannot reach a caregiver.
     `SELECT d.id, d.parent_id, d.document_name, d.document_type, d.mime_type, d.created_at, d.status, d.reviewed_at,
-            COALESCE(d.reviewed_data, d.extracted_data) AS extracted_data, p.full_name AS parent_name
+            CASE WHEN d.status = 'confirmed' THEN d.reviewed_data ELSE NULL END AS extracted_data, p.full_name AS parent_name
      FROM documents d
      JOIN parents p ON p.id = d.parent_id
      WHERE d.parent_id = ANY($1::text[])

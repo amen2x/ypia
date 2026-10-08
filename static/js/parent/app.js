@@ -4,7 +4,7 @@
 import { el, icon, getUser, firstNameOf, initialsOf } from "./dom.js";
 import { createYpiaOrb } from "./ypia-orb.js";
 import { loadProfile, saveProfile, cleanNickname, displayNameFor, imageFileToAvatar } from "./profile.js";
-import { initDocuments, loadDocumentHistory } from "./documents.js";
+import { initDocuments, loadDocumentHistory, fetchDocumentList } from "./documents.js";
 import { renderNextUp, renderMedPeek, renderMedications, renderSchedule } from "./views.js";
 
 const user = getUser();
@@ -157,20 +157,53 @@ function start() {
     if (message && isError) toastTimer = setTimeout(() => { uploadToast.hidden = true; }, 7000);
   }
 
-  function renderDocumentHistory() {
+  const DOC_STATUS = {
+    needs_confirmation: { label: "Needs your review", review: true },
+    uploaded: { label: "Needs your review", review: true },
+    processing: { label: "Being read…", review: false },
+    confirmed: { label: "Added to your care record", review: false },
+    failed: { label: "Couldn't be read", review: false },
+  };
+  const DOC_TYPE = { prescription: "Prescription", after_visit_summary: "Visit summary", appointment_letter: "Appointment letter", lab_result: "Lab result", other: "Document" };
+  const docDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
+  // The list comes from the server (so it survives a refresh, a new device or logging in again);
+  // the device-local record is only a fallback when the server can't be reached.
+  async function renderDocumentHistory() {
     const list = $("docHistory");
-    const entries = loadDocumentHistory(user);
+    const serverList = await fetchDocumentList(user);
     list.replaceChildren();
-    if (entries.length === 0) {
-      list.append(el("p", "state-msg", "Documents you add on this device will be listed here."));
+    if (serverList) {
+      if (serverList.length === 0) {
+        list.append(el("p", "state-msg", "Documents you add will be listed here."));
+        return;
+      }
+      for (const doc of serverList) {
+        const status = DOC_STATUS[doc.status] || { label: doc.status, review: false };
+        const item = el("div", "history-item");
+        item.append(el("strong", "", `${DOC_TYPE[doc.documentType] || "Document"} · ${doc.documentName}`));
+        item.append(el("span", "", docDate.format(new Date(doc.reviewedAt || doc.uploadedAt))));
+        item.append(el("span", `history-status${status.review ? " needs-review" : ""}`, status.label));
+        if (status.review) {
+          const button = el("button", "review-link-button", "Review and confirm");
+          button.type = "button";
+          button.addEventListener("click", () => documents.reviewDocument(doc.id));
+          item.append(button);
+        }
+        list.append(item);
+      }
       return;
     }
-    const fmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    const entries = loadDocumentHistory(user);
+    if (entries.length === 0) {
+      list.append(el("p", "state-msg", "We couldn't load your documents just now. Documents you add will be listed here."));
+      return;
+    }
     for (const entry of entries) {
       const item = el("div", "history-item");
       item.append(el("strong", "", entry.label));
       const changes = entry.changes ? ` · ${entry.changes} update${entry.changes === 1 ? "" : "s"}` : "";
-      item.append(el("span", "", `${fmt.format(new Date(entry.at))}${changes}`));
+      item.append(el("span", "", `${docDate.format(new Date(entry.at))}${changes}`));
       list.append(item);
     }
   }
@@ -179,6 +212,7 @@ function start() {
     user,
     getDisplayName: displayName,
     onUploadMessage: showUploadMessage,
+    onListChanged: () => renderDocumentHistory(),
     onConfirmed: () => {
       renderDocumentHistory();
       loaded.delete("medications");

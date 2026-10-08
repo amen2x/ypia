@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -13,8 +14,18 @@ import {
   getCurrentMedications,
   getApprovedParentIdsForCaregiver,
 } from "./services/parentInfo.js";
-import { saveDocumentExtraction, getLatestChanges } from "./services/documentHistory.js";
 import {
+  saveDocumentExtraction,
+  getLatestChanges,
+  findDocumentByContent,
+  listParentDocuments,
+  getParentDocumentDraft,
+} from "./services/documentHistory.js";
+import { GeminiExtractionError } from "./services/gemini.js";
+import { DocumentUploadError, MAX_UPLOAD_BYTES, validateUpload, type UploadErrorCode } from "./services/uploadValidation.js";
+import { extractedDocumentSchema } from "./schemas.js";
+import {
+  buildReviewNotes,
   buildReviewPayload,
   confirmDocument,
   DocumentAccessError,
@@ -117,7 +128,38 @@ export function parseScheduledFields(body: Record<string, unknown> | undefined):
   return { scheduledDate, scheduledTime, scheduledEndTime };
 }
 
-const upload = multer({ storage: multer.memoryStorage() });
+const documentUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 } });
+
+// Runs multer for the single "document" field and turns its failures into the same typed,
+// parent-safe errors the rest of the upload path uses.
+function acceptDocument(request: Request, response: Response, next: NextFunction): void {
+  documentUpload.single("document")(request, response, (error: unknown) => {
+    if (!error) {
+      next();
+      return;
+    }
+    const tooLarge = error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE";
+    sendUploadError(response, new DocumentUploadError(tooLarge ? "file_too_large" : "unreadable_file"));
+  });
+}
+
+function sendUploadError(response: Response, error: DocumentUploadError): void {
+  response.status(error.httpStatus).json({ error: error.message, code: error.code });
+}
+
+function toUploadError(error: unknown): DocumentUploadError {
+  if (error instanceof DocumentUploadError) return error;
+  if (error instanceof GeminiExtractionError) {
+    const codes: Record<GeminiExtractionError["kind"], UploadErrorCode> = {
+      not_configured: "ai_not_configured",
+      unavailable: "ai_unavailable",
+      bad_output: "ai_bad_output",
+      unreadable_input: "unreadable_file",
+    };
+    return new DocumentUploadError(codes[error.kind]);
+  }
+  return new DocumentUploadError("ai_unavailable");
+}
 const backgroundUpload = multer({
   storage: multer.memoryStorage(),
   fileFilter: (_req, file, cb) => {
@@ -146,9 +188,9 @@ const ALLOWED_ORIGINS = [
   "http://127.0.0.1:3000"
 ];
 
-async function processUpload(file: Express.Multer.File) {
+async function processUpload(file: Express.Multer.File, extension: string) {
   const temporaryDirectory = await mkdtemp(path.join(tmpdir(), "tigerhacks-document-"));
-  const temporaryFile = path.join(temporaryDirectory, `upload${path.extname(file.originalname).toLowerCase()}`);
+  const temporaryFile = path.join(temporaryDirectory, `upload${extension}`);
 
   try {
     await writeFile(temporaryFile, file.buffer);
@@ -346,9 +388,17 @@ export function createApp() {
     }
   });
 
-  app.post("/api/documents", upload.single("document"), async (request, response, next) => {
+  app.post("/api/documents", acceptDocument, async (request, response, next) => {
     if (!request.file) {
-      response.status(400).json({ error: "A document file is required" });
+      sendUploadError(response, new DocumentUploadError("no_file"));
+      return;
+    }
+
+    let validated: { mediaType: string; extension: string };
+    try {
+      validated = validateUpload(request.file.originalname, request.file.buffer);
+    } catch (error: unknown) {
+      sendUploadError(response, toUploadError(error));
       return;
     }
 
@@ -369,41 +419,145 @@ export function createApp() {
       }
     }
 
+    const contentHash = createHash("sha256").update(request.file.buffer).digest("hex");
+
     try {
-      const extracted = await processUpload(request.file);
-      let documentId: string | null = null;
+      // The same file from the same parent is the same document: hand back the existing one
+      // instead of reading it again or creating a second record.
+      if (userId && parentId) {
+        const existing = await findDocumentByContent(parentId, contentHash);
+        if (existing) {
+          response.json(await duplicateResponse(parentId, existing));
+          return;
+        }
+      }
+
+      const extracted = await processUpload(request.file, validated.extension);
+      let saved: { id: string; duplicate: boolean } | null = null;
 
       if (userId && parentId) {
         try {
-          documentId = await saveDocumentExtraction({
+          saved = await saveDocumentExtraction({
             parentId,
             uploadedBy: userId,
             documentName: request.file.originalname,
-            mimeType: request.file.mimetype,
+            mimeType: validated.mediaType,
             fileSizeBytes: request.file.size,
+            contentHash,
             extractedData: extracted,
           });
         } catch (persistError: unknown) {
           console.error("Failed to persist document extraction", persistError);
-          response.status(500).json({ error: "Document was processed but could not be saved" });
+          sendUploadError(response, new DocumentUploadError("save_failed"));
           return;
         }
       }
 
       // The caregiver upload remains a read-only extraction without a parent draft.
-      if (!documentId) {
+      if (!saved || !parentId) {
         response.json(extracted);
         return;
       }
 
+      if (saved.duplicate) {
+        // Another request saved the same file while this one was being read.
+        const existing = await findDocumentByContent(parentId, contentHash);
+        if (existing) {
+          response.json(await duplicateResponse(parentId, existing));
+          return;
+        }
+      }
+
       response.json({
-        documentId,
+        documentId: saved.id,
         status: "needs_confirmation",
+        duplicate: false,
         review: buildReviewPayload(extracted),
+        notes: await safeReviewNotes(parentId, extracted),
       });
     } catch (error: unknown) {
-      console.error("Document extraction failed");
-      response.status(400).json({ error: "We couldn't process this document. Try another PDF or image." });
+      const uploadError = toUploadError(error);
+      // Codes and sanitized provider messages only; never the file, its contents, or a key.
+      console.error(`Document extraction failed (${uploadError.code})`, error instanceof GeminiExtractionError ? error.message : "");
+      sendUploadError(response, uploadError);
+    }
+  });
+
+  async function safeReviewNotes(parentId: string, document: Parameters<typeof buildReviewNotes>[1]) {
+    try {
+      return await buildReviewNotes(parentId, document);
+    } catch (error: unknown) {
+      // Notes are a convenience; the review itself must still open.
+      console.error("Failed to build review notes", error);
+      return [];
+    }
+  }
+
+  async function duplicateResponse(parentId: string, existing: { id: string; status: string; extractedData: unknown }) {
+    const parsedDraft = extractedDocumentSchema.safeParse(existing.extractedData);
+    if (existing.status === "confirmed" || !parsedDraft.success) {
+      return { documentId: existing.id, status: existing.status, duplicate: true };
+    }
+    const draft = await normalizeMedications(parsedDraft.data);
+    return {
+      documentId: existing.id,
+      status: "needs_confirmation",
+      duplicate: true,
+      review: buildReviewPayload(draft),
+      notes: await safeReviewNotes(parentId, draft),
+    };
+  }
+
+  // The signed-in parent's own documents: safe metadata only, never extracted or reviewed content.
+  app.get("/api/parent/documents", async (request, response) => {
+    const userId = parseUserId(request.query.userId);
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+    try {
+      const parentId = await getParentIdForUser(userId);
+      if (!parentId) {
+        response.status(404).json({ error: "No parent profile found for this user" });
+        return;
+      }
+      response.json({ documents: await listParentDocuments(parentId) });
+    } catch (error: unknown) {
+      console.error("Failed to list parent documents", error);
+      response.status(500).json({ error: "Unable to load your documents" });
+    }
+  });
+
+  // Reopen a draft the parent left unconfirmed. Only their own document, and the extraction
+  // is returned only while it is still an unconfirmed draft.
+  app.get("/api/parent/documents/:id/review", async (request, response) => {
+    const userId = parseUserId(request.query.userId);
+    if (!userId) {
+      response.status(400).json({ error: "userId is required" });
+      return;
+    }
+    try {
+      const parentId = await getParentIdForUser(userId);
+      const draft = parentId ? await getParentDocumentDraft(parentId, request.params.id) : null;
+      if (!parentId || !draft) {
+        response.status(404).json({ error: "Document not found" });
+        return;
+      }
+      const parsedDraft = extractedDocumentSchema.safeParse(draft.extractedData);
+      if (draft.status === "confirmed" || !parsedDraft.success) {
+        response.json({ documentId: draft.id, status: draft.status });
+        return;
+      }
+      const normalized = await normalizeMedications(parsedDraft.data);
+      response.json({
+        documentId: draft.id,
+        status: "needs_confirmation",
+        review: buildReviewPayload(normalized),
+        notes: await safeReviewNotes(parentId, normalized),
+      });
+    } catch (error: unknown) {
+      console.error("Failed to load document review", error);
+      response.status(500).json({ error: "Unable to load this document" });
     }
   });
 

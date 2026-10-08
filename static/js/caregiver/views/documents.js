@@ -1,5 +1,5 @@
 // Documents: what the parent has shared, clearly separated into confirmed and awaiting confirmation.
-// Extracted details are never presented as confirmed care information until the parent confirms.
+// Details from a document appear here only after the parent confirms them (the server enforces this).
 
 import { state, parentFirstName, reload } from "../store.js";
 import { api } from "../api.js";
@@ -35,18 +35,21 @@ function banner(kind, text) {
   return node;
 }
 
-// A saved document: confirmed by the parent, or still an unreviewed reading of the file.
+// A saved document: confirmed details are shown; an unreviewed document shows only a note.
 export function openDocument(doc) {
   const first = parentFirstName();
   const dialog = document.getElementById("docDialog");
   document.getElementById("docDialogTitle").textContent = `${formatDocType(doc.documentType)} · ${doc.documentName}`;
   const body = document.getElementById("docDialogBody");
-  body.replaceChildren(
-    doc.status === "confirmed"
-      ? banner("ok", `${first} reviewed and confirmed these details${doc.reviewedAt ? ` on ${fmtDate(new Date(doc.reviewedAt))}` : ""}.`)
-      : banner("wait", `Not confirmed yet. Y.P.I.A. read this from the file and it may contain mistakes. It isn't part of the care record until ${first} confirms it in the app.`),
-    extractedSections(doc.extractedData)
-  );
+  if (doc.status !== "confirmed") {
+    // The server withholds unreviewed readings entirely; nothing from the file is shown here.
+    body.replaceChildren(banner("wait", `Not confirmed yet. ${first} hasn't reviewed this document, so its details aren't part of the care record and aren't shown here. They appear once ${first} confirms them in the app.`));
+  } else {
+    body.replaceChildren(
+      banner("ok", `${first} reviewed and confirmed these details${doc.reviewedAt ? ` on ${fmtDate(new Date(doc.reviewedAt))}` : ""}.`),
+      extractedSections(doc.extractedData)
+    );
+  }
   dialog.showModal();
 }
 

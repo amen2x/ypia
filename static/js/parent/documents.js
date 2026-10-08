@@ -1,9 +1,12 @@
-// Document upload -> Gemini extraction -> review -> confirm.
+// Document upload -> AI reading -> parent review -> parent confirms.
 //
-// The request flow is the original one from parent.html, unchanged:
-//   POST /api/documents (multipart: document, userId)  -> { documentId, review }
-//   POST /api/documents/:id/confirm { userId, editedData } -> { status, summary }
-// Only the presentation changed (native <dialog> panels, large touch targets).
+//   POST /api/documents (multipart: document, userId)  -> { documentId, status, review, notes, duplicate }
+//   GET  /api/parent/documents?userId                  -> the parent's own documents (safe metadata only)
+//   GET  /api/parent/documents/:id/review?userId       -> reopen a draft the parent left unconfirmed
+//   POST /api/documents/:id/confirm { userId, editedData } -> { status, summary, notChanged }
+//
+// What the AI read is only ever a draft here. Nothing reaches the care record until the
+// parent presses confirm, and a failed request never looks like a saved one.
 
 import { el } from "./dom.js";
 
@@ -63,8 +66,8 @@ function historyKey(userId) {
   return `ypia_doc_history_${userId}`;
 }
 
-// Documents confirmed from this device. There is no parent-facing "list my
-// documents" endpoint, so this is a local record of what the parent added here.
+// Fallback only: a local record of what was added from this device, used when the
+// server list can't be loaded. The server list is the source of truth.
 export function loadDocumentHistory(user) {
   if (!user?.id) return [];
   try {
@@ -85,7 +88,31 @@ function rememberDocument(user, entry) {
   }
 }
 
-export function initDocuments({ user, getDisplayName, onUploadMessage, onConfirmed }) {
+// The parent's own documents from the server, or null when they can't be loaded.
+export async function fetchDocumentList(user) {
+  if (!user?.id) return null;
+  try {
+    const response = await fetch(`/api/parent/documents?userId=${encodeURIComponent(user.id)}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return Array.isArray(data?.documents) ? data.documents : null;
+  } catch {
+    return null;
+  }
+}
+
+// A parent-safe message for a failed request. The server sends its own plain-language
+// message for expected failures; anything else (the service being down, a proxy error,
+// a dropped connection) gets a distinct, honest message instead of a raw error.
+function failureMessage(response, data, fallback) {
+  if (data && typeof data.code === "string" && typeof data.error === "string") return data.error;
+  if (!response) return "We couldn't reach Y.P.I.A. Check your connection and try again.";
+  if (response.status === 502 || response.status === 503 || response.status === 504) return "Y.P.I.A. isn't reachable right now. Please try again in a few minutes.";
+  if (data && typeof data.error === "string" && response.status < 500) return data.error;
+  return fallback;
+}
+
+export function initDocuments({ user, getDisplayName, onUploadMessage, onConfirmed, onListChanged = () => {} }) {
   let draft = null; // { documentId, documentType, documentTypeLabel, medications:[], appointments:[], followUps:[], instructions:[] }
 
   const uploadInput = document.createElement("input");
@@ -99,6 +126,7 @@ export function initDocuments({ user, getDisplayName, onUploadMessage, onConfirm
   const reviewDialog = document.getElementById("reviewDialog");
   const reviewSubtitle = document.getElementById("reviewSubtitle");
   const reviewEmptyNote = document.getElementById("reviewEmptyNote");
+  const reviewNotes = document.getElementById("reviewNotes");
   const reviewSections = document.getElementById("reviewSections");
   const reviewError = document.getElementById("reviewError");
   const reviewCancelButton = document.getElementById("reviewCancelButton");
@@ -130,25 +158,58 @@ export function initDocuments({ user, getDisplayName, onUploadMessage, onConfirm
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        onUploadMessage((data && data.error) || "We couldn't process this document. Try another PDF or image.", true);
+        onUploadMessage(failureMessage(response, data, "We couldn't process this document. Try another PDF or image."), true);
         return;
       }
 
-      if (!data.documentId) {
+      if (!data?.documentId) {
         onUploadMessage("We couldn't process this document. Try another PDF or image.", true);
         return;
       }
 
+      onListChanged();
+      if (data.status === "confirmed") {
+        onUploadMessage("You've already added this document to your care record.", false);
+        return;
+      }
+      if (!data.review) {
+        onUploadMessage("This document is already in your list, but we couldn't open it for review. Please try again.", true);
+        return;
+      }
+
       onUploadMessage("", false);
-      openReview(data.documentId, data.review);
+      openReview(data.documentId, data.review, data.notes, data.duplicate);
     } catch {
-      onUploadMessage("Something went wrong. Please try again.", true);
+      onUploadMessage(failureMessage(null, null), true);
     } finally {
       uploadInput.value = "";
     }
   });
 
-  function openReview(documentId, review) {
+  // Reopens a draft the parent left without confirming (from the documents list).
+  async function reviewDocument(documentId) {
+    if (!user?.id) return;
+    onUploadMessage("Opening your document…", false);
+    try {
+      const response = await fetch(`/api/parent/documents/${encodeURIComponent(documentId)}/review?userId=${encodeURIComponent(user.id)}`);
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        onUploadMessage(failureMessage(response, data, "We couldn't open this document. Please try again."), true);
+        return;
+      }
+      if (data.status === "confirmed" || !data.review) {
+        onUploadMessage(data.status === "confirmed" ? "This document has already been added." : "We couldn't open this document for review.", data.status !== "confirmed");
+        onListChanged();
+        return;
+      }
+      onUploadMessage("", false);
+      openReview(data.documentId, data.review, data.notes, false);
+    } catch {
+      onUploadMessage(failureMessage(null, null), true);
+    }
+  }
+
+  function openReview(documentId, review, notes = [], wasUploadedBefore = false) {
     draft = {
       documentId,
       documentType: review.documentType,
@@ -158,7 +219,10 @@ export function initDocuments({ user, getDisplayName, onUploadMessage, onConfirm
       followUps: review.followUps.map((f) => ({ description: f.description, timeframe: f.timeframe || "" })),
       instructions: [...review.instructions],
     };
-    reviewSubtitle.textContent = `From your ${review.documentTypeLabel.toLowerCase()}. Review the details below before adding them.`;
+    reviewSubtitle.textContent = `Here's what I found in your ${review.documentTypeLabel.toLowerCase()}. Please check it before adding it to your care record. Nothing is added until you confirm.${wasUploadedBefore ? " You added this file before, so this is where you left off." : ""}`;
+    reviewNotes.replaceChildren();
+    for (const note of Array.isArray(notes) ? notes : []) reviewNotes.append(el("p", "review-note", note.message));
+    reviewNotes.hidden = reviewNotes.childElementCount === 0;
     reviewEmptyNote.hidden = !review.isEmpty;
     reviewError.hidden = true;
     reviewError.textContent = "";
@@ -321,12 +385,13 @@ export function initDocuments({ user, getDisplayName, onUploadMessage, onConfirm
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        failed((data && data.error) || "We couldn't save this information. Please try again.");
+        failed(failureMessage(response, data, "We couldn't save this information. Please try again."));
         return;
       }
 
       closeReview();
       openSuccess(data);
+      onListChanged();
       if (data?.status !== "already_confirmed") {
         rememberDocument(user, {
           label: documentTypeLabel || "Document",
@@ -336,7 +401,7 @@ export function initDocuments({ user, getDisplayName, onUploadMessage, onConfirm
       }
       onConfirmed();
     } catch {
-      failed("Something went wrong. Please try again.");
+      failed(failureMessage(null, null));
     }
   });
 
@@ -358,11 +423,17 @@ export function initDocuments({ user, getDisplayName, onUploadMessage, onConfirm
     } else if (result.status !== "already_confirmed") {
       successChanges.append(el("p", "review-empty-note", "Nothing new to update this time — your records already reflect this."));
     }
+    if (result.notChanged && result.notChanged.length > 0) {
+      const section = el("div", "review-section");
+      section.append(el("h3", "review-section-title", "Left as it was"));
+      for (const item of result.notChanged) section.append(el("p", "review-item-primary", item.summary));
+      successChanges.append(section);
+    }
 
     successDialog.showModal();
   }
 
   successCloseButton.addEventListener("click", () => successDialog.close());
 
-  return { openPicker };
+  return { openPicker, reviewDocument };
 }

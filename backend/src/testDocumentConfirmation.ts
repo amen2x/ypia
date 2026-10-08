@@ -82,6 +82,7 @@ test("appointment parsing rejects invalid, incomplete, and rollover values", () 
 
 async function main() {
   await asyncTest("caregiver upload keeps its existing read-only response shape", async () => {
+    process.env.YPIA_TEST_ALLOW_JSON_UPLOAD = "1"; // lets this test bypass the AI; real uploads reject .json
     const server = createApp().listen(0, "127.0.0.1");
     await new Promise<void>((resolve) => server.once("listening", resolve));
     try {
@@ -98,6 +99,7 @@ async function main() {
       assert.deepEqual(body.instructions, draft.instructions);
       assert.equal(body.documentId, undefined);
     } finally {
+      delete process.env.YPIA_TEST_ALLOW_JSON_UPLOAD;
       server.closeAllConnections();
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     }
